@@ -1,0 +1,62 @@
+{
+  "name": "context42",
+  "version": "0.0.1",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "license": "MIT",
+  "bin": "dist/cli.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@zenbase/llml": "^0.4.0",
+    "better-sqlite3": "^12.2.0",
+    "exponential-backoff": "^3.1.2",
+    "glob": "^11.0.3",
+    "ink": "^6.0.1",
+    "ink-spinner": "^5.0.0",
+    "meow": "^13.2.0",
+    "p-limit": "^6.2.0",
+    "react": "^19.1.0",
+    "ts-essentials": "^10.1.1",
+    "zx": "^8.7.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/bun": "^1.2.18",
+    "@types/react": "^19.1.8",
+    "@vdemedes/prettier-config": "^2.0.1",
+    "@vitest/ui": "^3.2.4",
+    "bunup": "^0.8.60",
+    "chalk": "^5.2.0",
+    "eslint-config-xo-react": "^0.28.0",
+    "eslint-plugin-react": "^7.32.2",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "ink-testing-library": "^4.0.0",
+    "prettier": "^3.6.2",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4",
+    "xo": "^1.1.1"
+  },
+  "xo": {
+    "extends": "xo-react",
+    "prettier": true,
+    "semicolon": false,
+    "rules": {
+      "react/prop-types": "off"
+    }
+  },
+  "prettier": "@vdemedes/prettier-config"
+}

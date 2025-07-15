@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm:*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm vitest run:*)",
+      "Bash(./bin/run.js:*)",
+      "Bash(pnpm build:*)",
+      "WebFetch(domain:context7.com)",
+      "Bash(mkdir:*)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm prettier:*)",
+      "Bash(node:*)",
+      "Bash(chmod:*)",
+      "Bash(npx:*)",
+      "Bash(pnpm list:*)",
+      "Bash(pnpm remove:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(mv:*)",
+      "Bash(fd:*)",
+      "Bash(ls:*)",
+      "Bash(./test/cli.sh:*)",
+      "Bash(true)",
+      "Bash(tsc --noEmit)"
+    ],
+    "deny": []
+  }
+}
