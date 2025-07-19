@@ -1,20 +1,25 @@
 import { Box, Text } from "ink"
 import Spinner from "ink-spinner"
 import type React from "react"
-import type { ExplorerStatusProps } from "../lib/types"
+import type { FileGroup, Language } from "../lib/types.js"
+
+export type ExplorerStatusProps = {
+  readonly fileGroups: Map<Language, FileGroup[]>
+  readonly isLoading: boolean
+}
 
 export const ExplorerStatus: React.FC<ExplorerStatusProps> = ({ fileGroups, isLoading }) => {
-  const foundLanguages = fileGroups.map(g => g.language)
-  const fileCount = fileGroups.reduce((sum, g) => sum + g.files.length, 0)
+  const foundLanguages = Array.from(fileGroups.keys())
 
-  // Group by language to show counts
-  const languageCounts = fileGroups.reduce(
-    (counts, group) => {
-      counts[group.language] = (counts[group.language] || 0) + group.files.length
-      return counts
-    },
-    {} as Record<string, number>,
-  )
+  // Calculate total file count
+  let fileCount = 0
+  const languageCounts: Record<string, number> = {}
+
+  for (const [language, groups] of fileGroups) {
+    const languageFileCount = groups.reduce((sum, g) => sum + g.files.length, 0)
+    languageCounts[language] = languageFileCount
+    fileCount += languageFileCount
+  }
 
   return (
     <Box flexDirection="column" marginBottom={1}>
@@ -24,7 +29,6 @@ export const ExplorerStatus: React.FC<ExplorerStatusProps> = ({ fileGroups, isLo
             <Spinner type="dots" />
           </Text>
         )}
-        <Text bold>{isLoading ? "Exploring..." : "Exploration complete"}</Text>
       </Box>
       {!isLoading && foundLanguages.length > 0 && (
         <Box flexDirection="column" marginLeft={2} marginTop={1}>
@@ -40,7 +44,13 @@ export const ExplorerStatus: React.FC<ExplorerStatusProps> = ({ fileGroups, isLo
           </Box>
           <Box flexDirection="column" marginTop={1}>
             <Text color="dim">Directories:</Text>
-            {[...new Set(fileGroups.map(g => g.directory))].map(dir => (
+            {[
+              ...new Set(
+                Array.from(fileGroups.values())
+                  .flat()
+                  .map(g => g.directory),
+              ),
+            ].map(dir => (
               <Text key={dir} color="gray">
                 • {dir}
               </Text>

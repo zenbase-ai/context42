@@ -13,10 +13,6 @@ Key Objectives:
 ```bash
 export GEMINI_API_KEY="..." bunx context42
 # ./context42/{py,ts,go}.md are filled with style guides based on recursively discovered code in the cwd
-# TUI should have:
-# First section: spinny loady animation with label saying "Exploring...". Below it it should have room for 1 paragraph of text.
-# Second section: 1 row for each worker with the loady animation + status + relative path to the directory they're working on
-# 1 line at the bottom, progress bar, total = number of directories to explore, current = number of directories explored w/ Gemini
 bunx context42 -i dir/ # analyze the code in the ./dir/ folder
 bunx context42 -o .cursor/rules/ # save the style guides to .cursor/rules/
 ```

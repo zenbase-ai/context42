@@ -9,26 +9,29 @@ gemini *args:
   bunx @google/gemini-cli {{args}}
 
 dev:
-  bun run bunup --watch
+  pnpm vitest
 
 build:
-  bun run bunup
+  node build.js
+
+typecheck:
+  pnpm tsc --noEmit
 
 fmt:
-  biome check --write --unsafe
+  biome format --write && biome check --write --unsafe
 
 lint:
   biome check --unsafe
 
-test:
-  bun run vitest --run
+test *args:
+  pnpm vitest --run {{args}}
 
 coverage:
-  bun run vitest --coverage
+  pnpm vitest --coverage
 
-publish version:
+publish version: build
   pnpm version {{version}}
-  bun publish --access public
+  pnpm publish --access public
 
-cli *args: build
-  bun run dist/index.js {{args}}
+cli *args:
+  pnpm tsx src/main.tsx {{args}}

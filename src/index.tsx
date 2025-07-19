@@ -1,64 +1,93 @@
-#!/usr/bin/env node
-import { resolve } from "node:path"
-import { render } from "ink"
-import meow from "meow"
-import { TUI } from "./tui"
+import { join, relative } from "node:path"
+import { Box, Text, useApp } from "ink"
+import BigText from "ink-big-text"
+import Gradient from "ink-gradient"
+import { useEffect } from "react"
+import { ExplorerStatus } from "./components/ExplorerStatus.js"
+import { ProgressBar } from "./components/ProgressBar.js"
+import Table from "./components/Table.js"
+import { WorkersStatus } from "./components/WorkerStatus.js"
+import { useProcessor } from "./hooks/use-processor.js"
+import type { DB } from "./lib/database.js"
+import type { FileGroup, Language } from "./lib/types.js"
 
-const cli = meow(
-  `
-	Usage
-	  $ context42 [options]
+const _outputPath = (outputDir: string, lang: Language) => relative(outputDir, join(outputDir, `${lang}.md`))
 
-	Options
-	  -i, --input       Input directory to analyze (default: current directory)
-	  -o, --output      Output directory for style guides (default: ./context42)
-	  -m, --model       Gemini model to use (default: gemini-2.5-pro)
-	  -c, --concurrency Number of concurrent operations (default: 4)
-	  -h, --help        Show help
-
-	Examples
-	  $ context42
-	  $ context42 -i src/
-	  $ context42 -o .cursor/rules/
-	  $ context42 -m gemini-2.0-flash-exp
-	  $ context42 -c 10
-	  $ GEMINI_API_KEY="your-key" context42
-
-	Note: Requires GEMINI_API_KEY environment variable to be set.
-`,
-  {
-    importMeta: import.meta,
-    flags: {
-      input: {
-        type: "string",
-        shortFlag: "i",
-        default: ".",
-      },
-      output: {
-        type: "string",
-        shortFlag: "o",
-        default: "./context42/",
-      },
-      model: {
-        type: "string",
-        shortFlag: "m",
-        default: "gemini-2.5-flash",
-      },
-      concurrency: {
-        type: "number",
-        shortFlag: "c",
-        default: 4,
-      },
-    },
-  },
-)
-
-// Check for GEMINI_API_KEY
-if (!process.env.GEMINI_API_KEY) {
-  console.error("Error: GEMINI_API_KEY environment variable is not set.")
-  console.error("Please set it before running context42:")
-  console.error('  export GEMINI_API_KEY="your-api-key"')
-  process.exit(1)
+export type IndexProps = {
+  fileGroups: Map<Language, FileGroup[]>
+  inputDir: string
+  outputDir: string
+  model: string
+  concurrency: number
+  total: number
+  database: DB
+  debug?: boolean
 }
 
-render(<TUI inputDir={resolve(cli.flags.input)} outputDir={resolve(cli.flags.output)} model={cli.flags.model} />)
+export const Index: React.FC<IndexProps> = ({
+  fileGroups,
+  inputDir,
+  outputDir,
+  model,
+  concurrency,
+  total,
+  database,
+  debug,
+}) => {
+  const { exit } = useApp()
+  const { run, workers, queuedTasks, progress, results, error, reset } = useProcessor({
+    model,
+    concurrency,
+    fileGroups,
+    inputDir,
+    outputDir,
+    database,
+  })
+
+  useEffect(() => {
+    run()
+  }, [run])
+
+  // Exit when complete or on error
+  useEffect(() => {
+    if (results != null || error != null) {
+      // Reset processor before exiting
+      database.close()
+      reset()
+      exit()
+    }
+  }, [results, error, exit, reset, database])
+
+  return (
+    <Box flexDirection="column" paddingY={1}>
+      <Gradient name="retro">
+        <BigText text="context42" />
+      </Gradient>
+
+      {results != null ? (
+        <>
+          <Box marginTop={1}>
+            <Text color="green">✓ Style guides generated successfully!</Text>
+          </Box>
+          <Table
+            data={Array.from(results.entries()).map(([language, path]) => ({ language, path }))}
+            columnWidths={{ language: 16, path: 32 }}
+          />
+        </>
+      ) : error != null ? (
+        <>
+          <ExplorerStatus fileGroups={fileGroups} isLoading={false} />
+          <Box marginTop={1}>
+            <Text color="red">✗ Error: {error}</Text>
+            {debug && <Text dimColor>Run ID: {database.runId}</Text>}
+          </Box>
+        </>
+      ) : (
+        <>
+          <ProgressBar value={progress} max={total} label="analyzed files" />
+          <WorkersStatus workers={workers} inputDir={inputDir} queuedTasks={queuedTasks} />
+        </>
+      )}
+    </Box>
+  )
+}

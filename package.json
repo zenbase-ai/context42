@@ -1,62 +1,77 @@
 {
   "name": "context42",
-  "version": "0.0.1",
+  "version": "0.1.0",
+  "description": "The best code style guide is the one your team already follows. This tool discovers it.",
   "type": "module",
+  "author": "Zenbase AI",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zenbase-ai/context42"
+  },
+  "homepage": "https://github.com/zenbase-ai/context42#readme",
+  "bugs": "https://github.com/zenbase-ai/context42/issues",
+  "keywords": [
+    "style-guide",
+    "gemini",
+    "ai",
+    "code-analysis",
+    "linting",
+    "formatting"
+  ],
   "files": [
     "dist"
   ],
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      }
-    }
+  "bin": "dist/main.js",
+  "scripts": {
+    "start": "tsx src/main.tsx",
+    "build": "node build.js",
+    "typecheck": "tsc --noEmit"
   },
-  "license": "MIT",
-  "bin": "dist/cli.js",
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
+    "@clack/prompts": "^0.11.0",
+    "@google/gemini-cli": "^0.1.12",
     "@zenbase/llml": "^0.4.0",
     "better-sqlite3": "^12.2.0",
+    "es-toolkit": "^1.39.7",
     "exponential-backoff": "^3.1.2",
-    "glob": "^11.0.3",
+    "globby": "^14.1.0",
     "ink": "^6.0.1",
+    "ink-big-text": "^2.0.0",
+    "ink-gradient": "^3.0.0",
     "ink-spinner": "^5.0.0",
     "meow": "^13.2.0",
+    "object-hash": "^3.0.0",
     "p-limit": "^6.2.0",
+    "p-queue": "^8.1.0",
     "react": "^19.1.0",
     "ts-essentials": "^10.1.1",
     "zx": "^8.7.1"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
-    "@types/bun": "^1.2.18",
+    "@types/object-hash": "^3.0.6",
     "@types/react": "^19.1.8",
     "@vdemedes/prettier-config": "^2.0.1",
     "@vitest/ui": "^3.2.4",
-    "bunup": "^0.8.60",
     "chalk": "^5.2.0",
-    "eslint-config-xo-react": "^0.28.0",
-    "eslint-plugin-react": "^7.32.2",
-    "eslint-plugin-react-hooks": "^5.2.0",
+    "esbuild": "^0.25.6",
     "ink-testing-library": "^4.0.0",
     "prettier": "^3.6.2",
+    "tshy": "^3.0.2",
+    "tsx": "^4.20.3",
     "typescript": "^5.8.3",
-    "vitest": "^3.2.4",
-    "xo": "^1.1.1"
+    "vitest": "^3.2.4"
   },
-  "xo": {
-    "extends": "xo-react",
-    "prettier": true,
-    "semicolon": false,
-    "rules": {
-      "react/prop-types": "off"
+  "module": "./dist/main.js",
+  "types": "./dist/main.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/main.d.ts",
+      "import": "./dist/main.js"
     }
-  },
-  "prettier": "@vdemedes/prettier-config"
+  }
 }

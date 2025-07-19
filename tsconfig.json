@@ -3,15 +3,15 @@
 		// Enable latest features
 		"lib": ["ESNext", "DOM", "DOM.Iterable"],
 		"target": "ESNext",
-		"module": "ESNext",
+		"module": "NodeNext",
 		"moduleDetection": "force",
 		"allowJs": false,
 
-		// Bundler mode
-		"moduleResolution": "bundler",
-		"allowImportingTsExtensions": true,
-		"verbatimModuleSyntax": true,
-		"noEmit": true,
+		// Node ESM mode
+		"moduleResolution": "NodeNext",
+		"allowImportingTsExtensions": false,
+		"verbatimModuleSyntax": false,
+		"noEmit": false,
 
 		// Best practices
 		"strict": true,
@@ -22,18 +22,22 @@
 		"noUnusedLocals": false,
 		"noUnusedParameters": false,
 		"noPropertyAccessFromIndexSignature": false,
-		"isolatedDeclarations": true,
+		"isolatedDeclarations": false,
 		"declaration": true,
 		"jsx": "react-jsx",
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
 
 		"paths": {
 			"@/": ["./src"]
-		}
+		},
+		"outDir": "./dist/",
+		"rootDir": "./src/"
 	},
 	"exclude": [
 		"./node_modules/",
 		"./dist/",
-		"bunup.config.ts",
+		"./test/",
 		"vitest.config.ts"
 	]
 }

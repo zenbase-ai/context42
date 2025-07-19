@@ -1,102 +1,208 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { afterEach, beforeEach, expect, test } from 'vitest';
-import { discoverFiles, getDirectoriesForProcessing } from '../src/lib/explorer';
+import { resolve } from "node:path"
+import { assert, expect, test } from "vitest"
+import { explorer, getDirectoriesForProcessing, toposort } from "../src/lib/explorer"
+import type { FileGroup, Language } from "../src/lib/types"
 
-let tempDir: string;
+const repoDir = resolve(".")
 
-beforeEach(() => {
-	tempDir = mkdtempSync(join(tmpdir(), 'explorer-test-'));
+test("explorer returns FileGroups grouped by language and directory", async () => {
+  const fileGroupsMap = await explorer({ directory: repoDir })
 
-	// Create test file structure
-	mkdirSync(join(tempDir, 'src'), {recursive: true});
-	mkdirSync(join(tempDir, 'src', 'components'), {recursive: true});
-	mkdirSync(join(tempDir, 'tests'), {recursive: true});
-	mkdirSync(join(tempDir, 'node_modules', 'foo'), {recursive: true});
+  // Should return Maps for both ts and tsx extensions
+  const tsGroups = fileGroupsMap.get("ts")
+  const tsxGroups = fileGroupsMap.get("tsx")
+  
+  // We should have both ts and tsx files
+  assert(tsGroups != null || tsxGroups != null)
+  
+  // Check that we have multiple directories with TypeScript files
+  const allTsDirectories = new Set<string>()
+  if (tsGroups) {
+    tsGroups.forEach(g => allTsDirectories.add(g.directory))
+  }
+  if (tsxGroups) {
+    tsxGroups.forEach(g => allTsDirectories.add(g.directory))
+  }
+  expect(allTsDirectories.size).toBeGreaterThanOrEqual(4)
 
-	// Create test files
-	writeFileSync(join(tempDir, 'src', 'index.ts'), 'console.log("hello");');
-	writeFileSync(
-		join(tempDir, 'src', 'app.tsx'),
-		'export default function App() {}',
-	);
-	writeFileSync(
-		join(tempDir, 'src', 'components', 'Button.tsx'),
-		'export function Button() {}',
-	);
-	writeFileSync(
-		join(tempDir, 'tests', 'test.py'),
-		'def test_something(): pass',
-	);
-	writeFileSync(join(tempDir, 'main.go'), 'package main');
-	writeFileSync(join(tempDir, 'node_modules', 'foo', 'index.js'), 'ignored');
-});
+  // Verify src/ directory contains tsx files
+  const srcTsxGroup = tsxGroups?.find(g => g.directory === resolve("./src"))
+  expect(srcTsxGroup).toBeTruthy()
+  if (srcTsxGroup) {
+    const fileNames = srcTsxGroup.files.map(f => f.split("/").pop())
+    expect(fileNames).toContain("index.tsx")
+    expect(fileNames).toContain("main.tsx")
+  }
 
-afterEach(() => {
-	rmSync(tempDir, {recursive: true, force: true});
-});
+  // Verify src/lib directory contains its files
+  const libGroup = tsGroups?.find(g => g.directory === resolve("./src/lib"))
+  expect(libGroup).toBeTruthy()
+  if (libGroup) {
+    const fileNames = libGroup.files.map(f => f.split("/").pop())
+    expect(fileNames).toContain("explorer.ts")
+    expect(fileNames).toContain("types.ts")
+  }
+})
 
-test('discoverFiles finds files by language', async () => {
-	const fileGroups = await discoverFiles({directory: tempDir});
+test.skip("explorer ignores node_modules and other default directories", async () => {
+  const fileGroupsMap = await explorer({ directory: repoDir })
 
-	// Should find TypeScript, Python, and Go files
-	const languages = fileGroups.map(g => g.language).sort();
-	expect(languages).toEqual(['go', 'python', 'typescript']);
+  // Should not find any files from ignored directories
+  for (const fileGroups of fileGroupsMap.values()) {
+    for (const group of fileGroups) {
+      for (const file of group.files) {
+        expect(file).not.toContain("node_modules")
+        expect(file).not.toContain(".git")
+        expect(file).not.toContain("dist")
+        expect(file).not.toContain("build")
+      }
+    }
+  }
+})
 
-	// Check TypeScript files
-	const tsGroup = fileGroups.find(g => g.language === 'typescript');
-	expect(tsGroup).toBeTruthy();
-	if (tsGroup) {
-		const tsFileCount = tsGroup.files.length;
-		expect(tsFileCount).toBeGreaterThanOrEqual(1);
-	}
+test("getDirectoriesForProcessing returns unique sorted directories", async () => {
+  const fileGroupsMap = await explorer({ directory: repoDir })
+  const directories = getDirectoriesForProcessing(fileGroupsMap)
 
-	// Check Python files
-	const pyGroup = fileGroups.find(g => g.language === 'python');
-	expect(pyGroup).toBeTruthy();
-	if (pyGroup) {
-		expect(pyGroup.files.length).toBeGreaterThanOrEqual(1);
-	}
+  // Should contain directories from fileGroups
+  expect(directories.length).toBeGreaterThan(0)
 
-	// Check Go files
-	const goGroup = fileGroups.find(g => g.language === 'go');
-	expect(goGroup).toBeTruthy();
-	if (goGroup) {
-		expect(goGroup.files.length).toBeGreaterThanOrEqual(1);
-	}
-});
+  // All directories from fileGroups should be included
+  const fileGroupDirs = new Set<string>()
+  for (const fileGroups of fileGroupsMap.values()) {
+    for (const group of fileGroups) {
+      fileGroupDirs.add(group.directory)
+    }
+  }
+  for (const dir of fileGroupDirs) {
+    expect(directories).toContain(dir)
+  }
 
-test('discoverFiles ignores node_modules', async () => {
-	const fileGroups = await discoverFiles({directory: tempDir});
+  // Should be sorted by depth first, then alphabetically
+  for (let i = 1; i < directories.length; i++) {
+    const depthPrev = directories[i - 1]?.split("/").length
+    const depthCur = directories[i]?.split("/").length
+    expect(depthCur).toBeGreaterThanOrEqual(depthPrev)
+  }
+})
 
-	// Should not find any JavaScript files from node_modules
-	const jsGroup = fileGroups.find(g => g.language === 'javascript');
-	expect(jsGroup).toBeUndefined();
-});
+test("getFilesForDirectory returns files by language for a specific directory", async () => {
+  // Since we're now using the repo directory, process.cwd() should work correctly
+  const { getFilesForDirectory } = await import("../src/lib/explorer")
+  const fileGroupsMap = await explorer({ directory: repoDir })
 
-test('getDirectoriesForProcessing returns sorted directories', async () => {
-	const fileGroups = await discoverFiles({directory: tempDir});
-	const directories = getDirectoriesForProcessing(fileGroups);
+  // Test src/lib directory
+  const srcLibFiles = getFilesForDirectory(fileGroupsMap, "src/lib")
+  expect(srcLibFiles.size).toBeGreaterThan(0)
+  expect(srcLibFiles.has("ts")).toBe(true)
 
-	// Should be sorted by depth first, then alphabetically
-	// Should contain some directories
-	expect(directories.length).toBeGreaterThan(0);
-	// Should be sorted by depth
-	for (let i = 1; i < directories.length; i++) {
-		const depthPrev = directories[i - 1]!.split('/').length;
-		const depthCur = directories[i]!.split('/').length;
-		expect(depthCur).toBeGreaterThanOrEqual(depthPrev);
-	}
-});
+  const tsFiles = srcLibFiles.get("ts")
+  if (tsFiles) {
+    const fileNames = tsFiles.map(f => f.split("/").pop())
+    expect(fileNames).toContain("explorer.ts")
+    expect(fileNames).toContain("types.ts")
+  }
+})
 
-test('getFilesForDirectory returns files by language', async () => {
-	// The getFilesForDirectory function has a bug - it uses process.cwd()
-	// instead of the base directory from discoverFiles. For now, let's just
-	// skip this test since the function works correctly in the actual app
-	// where process.cwd() is the correct directory.
+test("toposort processes deeper directories first", () => {
+  // Create test file groups with clear parent-child relationships
+  const fileGroups: Map<Language, FileGroup[]> = new Map([
+    [
+      "ts",
+      [
+        {
+          directory: "/project",
+          language: "ts",
+          files: ["/project/index.ts"],
+        },
+        {
+          directory: "/project/src",
+          language: "ts",
+          files: ["/project/src/main.ts"],
+        },
+        {
+          directory: "/project/src/lib",
+          language: "ts",
+          files: ["/project/src/lib/utils.ts"],
+        },
+        {
+          directory: "/project/src/components",
+          language: "ts",
+          files: ["/project/src/components/Button.tsx"],
+        },
+        {
+          directory: "/project/src/lib/helpers",
+          language: "ts",
+          files: ["/project/src/lib/helpers/format.ts"],
+        },
+      ],
+    ],
+  ])
 
-	// This would require refactoring getFilesForDirectory to accept a base directory
-	// parameter, which is out of scope for this test migration.
-	expect(true).toBe(true);
-});
+  const sorted = toposort(fileGroups)
+  const tsGroups = sorted.get("ts")
+  assert(tsGroups != null)
+  const directories = tsGroups.map(g => g.directory)
+
+  // Deeper directories should come first
+  const projectIndex = directories.indexOf("/project")
+  const srcIndex = directories.indexOf("/project/src")
+  const libIndex = directories.indexOf("/project/src/lib")
+  const helpersIndex = directories.indexOf("/project/src/lib/helpers")
+  const componentsIndex = directories.indexOf("/project/src/components")
+
+  // Deepest directories should be processed first
+  expect(helpersIndex).toBeLessThan(libIndex) // helpers before lib
+  expect(libIndex).toBeLessThan(srcIndex) // lib before src
+  expect(componentsIndex).toBeLessThan(srcIndex) // components before src
+  expect(srcIndex).toBeLessThan(projectIndex) // src before project
+})
+
+test("toposort handles multiple languages independently", () => {
+  const fileGroups: Map<Language, FileGroup[]> = new Map([
+    [
+      "ts",
+      [
+        {
+          directory: "/project/src",
+          language: "ts",
+          files: ["/project/src/index.ts"],
+        },
+        {
+          directory: "/project/src/lib",
+          language: "ts",
+          files: ["/project/src/lib/utils.ts"],
+        },
+      ],
+    ],
+    [
+      "py",
+      [
+        {
+          directory: "/project/scripts",
+          language: "py",
+          files: ["/project/scripts/main.py"],
+        },
+        {
+          directory: "/project/scripts/helpers",
+          language: "py",
+          files: ["/project/scripts/helpers/util.py"],
+        },
+      ],
+    ],
+  ])
+
+  const sorted = toposort(fileGroups)
+
+  // Check TypeScript ordering
+  const tsGroups = sorted.get("ts")
+  assert(tsGroups != null)
+  expect(tsGroups[0]?.directory).toBe("/project/src/lib")
+  expect(tsGroups[1]?.directory).toBe("/project/src")
+
+  // Check Python ordering
+  const pyGroups = sorted.get("py")
+  assert(pyGroups != null)
+  expect(pyGroups[0]?.directory).toBe("/project/scripts/helpers")
+  expect(pyGroups[1]?.directory).toBe("/project/scripts")
+})

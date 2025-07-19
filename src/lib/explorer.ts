@@ -1,8 +1,7 @@
-import { glob } from "glob"
-import { statSync } from "node:fs"
-import { dirname, join, relative } from "node:path"
-import type { ExplorerOptions, FileGroup, Language } from "./types"
-import { LANGUAGE_EXTENSIONS } from "./types"
+import { stat } from "node:fs/promises"
+import { dirname, extname, join, relative } from "node:path"
+import { globby } from "globby"
+import type { ExplorerOptions, FileGroup, Language } from "./types.js"
 
 const DEFAULT_IGNORE = [
   "**/node_modules/**",
@@ -22,71 +21,75 @@ const DEFAULT_IGNORE = [
   "**/temp/**",
 ]
 
-export const discoverFiles = (options: ExplorerOptions): FileGroup[] => {
-  const { directory, ignore = [] } = options
-  const allIgnore = [...DEFAULT_IGNORE, ...ignore]
+export const explorer = async (options: ExplorerOptions): Promise<Map<Language, FileGroup[]>> => {
+  const ignore = [...DEFAULT_IGNORE, ...(options.ignore ?? [])]
 
-  // Create glob patterns for each language
-  type MutableFileGroup = {
-    language: Language
-    files: string[]
-    directory: string
+  // Find all files in the directory
+  const pattern = join(options.directory, "**/*")
+  const allFiles = await globby(pattern, {
+    ignore,
+    gitignore: true,
+    absolute: true,
+    onlyFiles: true,
+  })
+
+  // Group files by extension
+  const filesByExtension = new Map<string, string[]>()
+
+  for (const file of allFiles) {
+    // Skip files that are too large
+    const { size } = await stat(file)
+    if (size > 512 * 1024) continue // Skip files larger than 0.5MB
+
+    // Get the extension (without the dot)
+    const ext = extname(file).slice(1).toLowerCase()
+    if (!ext) continue // Skip files without extensions
+
+    if (!filesByExtension.has(ext)) {
+      filesByExtension.set(ext, [])
+    }
+    filesByExtension.get(ext)!.push(file)
   }
-  const fileGroups = new Map<Language, MutableFileGroup>()
 
-  for (const [language, extensions] of Object.entries(LANGUAGE_EXTENSIONS)) {
-    const files: string[] = []
-    let commonDirectory = ""
+  // Now group by directory within each extension
+  const result = new Map<Language, FileGroup[]>()
 
-    // Search for files with these extensions
-    for (const ext of extensions) {
-      const pattern = join(directory, `**/*${ext}`)
-      const matches = glob.sync(pattern, {
-        ignore: allIgnore,
-        absolute: true,
-        nodir: true,
-      })
+  for (const [extension, files] of filesByExtension) {
+    const extensionFileGroups: FileGroup[] = []
 
-      // Add files and track their directories
-      for (const file of matches) {
-        // Skip if file is too large (> 1MB)
-        try {
-          const stats = statSync(file)
-          if (stats.size > 1024 * 1024) continue
-        } catch {
-          continue
-        }
+    // Group files by their parent directory
+    const filesByDirectory = new Map<string, string[]>()
 
-        files.push(file)
-        if (!commonDirectory) {
-          commonDirectory = dirname(file)
-        }
+    for (const file of files) {
+      const directory = dirname(file)
+      if (!filesByDirectory.has(directory)) {
+        filesByDirectory.set(directory, [])
       }
+      filesByDirectory.get(directory)?.push(file)
     }
 
-    // Only include languages with files found
-    if (files.length > 0) {
-      fileGroups.set(language as Language, {
-        language: language as Language,
-        files,
-        directory: relative(directory, commonDirectory) || ".",
+    // Create a FileGroup for each directory
+    for (const [directory, dirFiles] of filesByDirectory) {
+      extensionFileGroups.push({
+        directory,
+        language: extension, // The extension IS the language
+        files: Object.freeze(dirFiles) as readonly string[],
       })
     }
+
+    result.set(extension, extensionFileGroups)
   }
 
-  // Convert to readonly types
-  return Array.from(fileGroups.values()).map(group => ({
-    directory: group.directory,
-    language: group.language,
-    files: Object.freeze(group.files) as readonly string[],
-  }))
+  return toposort(result)
 }
 
-export const getDirectoriesForProcessing = (fileGroups: FileGroup[]): string[] => {
+export const getDirectoriesForProcessing = (fileGroupsMap: Map<Language, FileGroup[]>): string[] => {
   const allDirectories = new Set<string>()
 
-  for (const group of fileGroups) {
-    allDirectories.add(group.directory)
+  for (const fileGroups of fileGroupsMap.values()) {
+    for (const group of fileGroups) {
+      allDirectories.add(group.directory)
+    }
   }
 
   // Sort directories by depth (process parent directories first)
@@ -98,18 +101,23 @@ export const getDirectoriesForProcessing = (fileGroups: FileGroup[]): string[] =
   })
 }
 
-export const getFilesForDirectory = (fileGroups: FileGroup[], directory: string): Map<string, string[]> => {
+export const getFilesForDirectory = (
+  fileGroupsMap: Map<Language, FileGroup[]>,
+  directory: string,
+): Map<string, string[]> => {
   const result = new Map<string, string[]>()
 
-  for (const group of fileGroups) {
-    const filesInDir = group.files.filter(file => {
-      const fileDir = dirname(file)
-      const relativeDir = relative(process.cwd(), fileDir) || "."
-      return relativeDir === directory
-    })
+  for (const [language, fileGroups] of fileGroupsMap) {
+    for (const group of fileGroups) {
+      const filesInDir = group.files.filter(file => {
+        const fileDir = dirname(file)
+        const relativeDir = relative(process.cwd(), fileDir) || "."
+        return relativeDir === directory
+      })
 
-    if (filesInDir.length > 0) {
-      result.set(group.language, filesInDir)
+      if (filesInDir.length > 0) {
+        result.set(language, filesInDir)
+      }
     }
   }
 
@@ -117,5 +125,98 @@ export const getFilesForDirectory = (fileGroups: FileGroup[], directory: string)
 }
 
 export const getSupportedLanguages = (): readonly Language[] => {
-  return Object.keys(LANGUAGE_EXTENSIONS) as Language[]
+  // This function is no longer meaningful since we support any extension
+  // Return empty array to maintain compatibility
+  return []
+}
+
+// Helper function to check if one directory is a child of another
+const isChildDirectory = (child: string, parent: string): boolean => {
+  if (child === parent) return false
+  const childParts = child.split("/")
+  const parentParts = parent.split("/")
+
+  if (childParts.length <= parentParts.length) return false
+
+  for (let i = 0; i < parentParts.length; i++) {
+    if (childParts[i] !== parentParts[i]) return false
+  }
+
+  return true
+}
+
+// Topological sort for FileGroups to ensure child directories are processed before parents
+export const toposort = (fileGroups: Map<Language, FileGroup[]>): Map<Language, FileGroup[]> => {
+  const result = new Map<Language, FileGroup[]>()
+
+  // Process each language separately
+  for (const [language, groups] of fileGroups) {
+    if (groups.length === 0) {
+      result.set(language, [])
+      continue
+    }
+
+    // Build adjacency list (parent -> children)
+    const adjacency = new Map<string, Set<string>>()
+    const inDegree = new Map<string, number>()
+    const directories = groups.map(g => g.directory)
+
+    // Initialize
+    for (const dir of directories) {
+      adjacency.set(dir, new Set())
+      inDegree.set(dir, 0)
+    }
+
+    // Build edges (parent depends on children, so children must come first)
+    for (const parent of directories) {
+      for (const child of directories) {
+        if (isChildDirectory(child, parent)) {
+          // Check if it's a direct child (no intermediate directories)
+          const isDirectChild = !directories.some(
+            d => d !== child && d !== parent && isChildDirectory(child, d) && isChildDirectory(d, parent),
+          )
+
+          if (isDirectChild) {
+            adjacency.get(parent)?.add(child)
+            inDegree.set(child, inDegree.get(child)! + 1)
+          }
+        }
+      }
+    }
+
+    // Topological sort using DFS
+    const visited = new Set<string>()
+    const sorted: string[] = []
+
+    const dfs = (dir: string) => {
+      if (visited.has(dir)) return
+      visited.add(dir)
+
+      // Visit all children first
+      const children = Array.from(adjacency.get(dir)!).sort()
+      for (const child of children) {
+        dfs(child)
+      }
+
+      sorted.push(dir)
+    }
+
+    // Start DFS from roots (directories with no parents)
+    const roots = directories
+      .filter(d => {
+        // A root has no parent directory in our list
+        return !directories.some(other => other !== d && isChildDirectory(d, other))
+      })
+      .sort()
+
+    for (const root of roots) {
+      dfs(root)
+    }
+
+    // Create sorted FileGroup array
+    const sortedGroups = sorted.map(dir => groups.find(g => g.directory === dir)!).filter(Boolean)
+    result.set(language, sortedGroups)
+  }
+
+  return result
 }

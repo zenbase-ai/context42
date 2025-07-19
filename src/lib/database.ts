@@ -1,148 +1,136 @@
-import Database from 'better-sqlite3';
-import {mkdirSync} from 'node:fs';
-import {homedir} from 'node:os';
-import {join} from 'node:path';
-import type {GeminiResponse, StyleGuide} from './types.ts';
+import { randomUUID } from "node:crypto"
+import { mkdirSync } from "node:fs"
+import { relative } from "node:path"
+import Database from "better-sqlite3"
+import type { StyleGuide } from "./types.js"
 
-let db: Database.Database | null = null;
+export class DB {
+  private database: Database.Database
+  runId: string
 
-export const getDatabase = (): Database.Database => {
-	if (db) return db;
+  constructor(dbPath: string, existingRunId?: string) {
+    // Create directory if needed (for file-based databases)
+    if (dbPath !== ":memory:") {
+      const dir = dbPath.substring(0, dbPath.lastIndexOf("/"))
+      if (dir) {
+        mkdirSync(dir, { recursive: true })
+      }
 
-	const dataDir = join(homedir(), '.context42');
-	mkdirSync(dataDir, {recursive: true});
+      process.on("exit", () => this.close())
+      process.on("SIGINT", () => this.close())
+      process.on("SIGTERM", () => this.close())
+    }
 
-	const dbPath = join(dataDir, 'data.db');
-	db = new Database(dbPath);
+    this.runId = existingRunId || randomUUID()
+    this.database = new Database(dbPath)
 
-	// Create tables if they don't exist
-	db.exec(`
-		CREATE TABLE IF NOT EXISTS responses (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			prompt TEXT NOT NULL,
-			result TEXT NOT NULL,
-			created_at DATETIME NOT NULL
-		);
-		CREATE INDEX IF NOT EXISTS idx_responses_created_at ON responses(created_at DESC);
+    this.init()
+  }
 
-		CREATE TABLE IF NOT EXISTS style_guides (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			language TEXT NOT NULL,
-			content TEXT NOT NULL,
-			directory TEXT NOT NULL,
-			created_at DATETIME NOT NULL,
-			updated_at DATETIME NOT NULL
-		);
-		CREATE INDEX IF NOT EXISTS idx_style_guides_language ON style_guides(language);
-		CREATE INDEX IF NOT EXISTS idx_style_guides_directory ON style_guides(directory);
-	`);
+  init(): void {
+    // Create tables if they don't exist
+    this.database.exec(`
+      CREATE TABLE IF NOT EXISTS responses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_id TEXT NOT NULL,
+        result TEXT NOT NULL,
+        created_at DATETIME NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_responses_lookup ON responses(run_id, created_at DESC);
 
-	return db;
-};
+      CREATE TABLE IF NOT EXISTS style_guides (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_id TEXT NOT NULL,
+        language TEXT NOT NULL,
+        content TEXT NOT NULL,
+        directory TEXT NOT NULL,
+        created_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_style_guides_lookup ON style_guides(run_id, language, directory);
+    `)
+  }
 
-export const saveGeminiResponse = (prompt: string, result: string): void => {
-	const database = getDatabase();
-	const stmt = database.prepare(
-		'INSERT INTO responses (prompt, result, created_at) VALUES (?, ?, ?)',
-	);
-	stmt.run(prompt, result, new Date().toISOString());
-};
+  saveResponse(result: string): void {
+    const stmt = this.database.prepare("INSERT INTO responses (run_id, result, created_at) VALUES (?, ?, ?)")
+    stmt.run(this.runId, result, new Date().toISOString())
+  }
 
-export const getRecentResponses = (limit = 10): GeminiResponse[] => {
-	const database = getDatabase();
-	const stmt = database.prepare(
-		'SELECT * FROM responses ORDER BY created_at DESC LIMIT ?',
-	);
-	const rows = stmt.all(limit) as Array<{
-		id: number;
-		prompt: string;
-		result: string;
-		created_at: string;
-	}>;
+  saveStyleGuide(language: string, content: string, directory: string): void {
+    const now = new Date().toISOString()
 
-	return rows.map(row => ({
-		id: row.id,
-		project_path: process.cwd(), // Using current working directory as project path
-		file_path: '', // Not applicable for general responses
-		question: row.prompt,
-		response: row.result,
-		response_time: 0, // Not tracked in current schema
-		created_at: row.created_at,
-	}));
-};
+    // Check if style guide exists for this language and directory in current run
+    const existing = this.database
+      .prepare("SELECT id FROM style_guides WHERE run_id = ? AND language = ? AND directory = ?")
+      .get(this.runId, language, directory) as { id: number } | undefined
 
-export const saveStyleGuide = (
-	language: string,
-	content: string,
-	directory: string,
-): void => {
-	const database = getDatabase();
-	const now = new Date().toISOString();
+    if (existing) {
+      // Update existing
+      const stmt = this.database.prepare("UPDATE style_guides SET content = ?, updated_at = ? WHERE id = ?")
+      stmt.run(content, now, existing.id)
+    } else {
+      // Insert new
+      const stmt = this.database.prepare(
+        "INSERT INTO style_guides (run_id, language, content, directory, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      )
+      stmt.run(this.runId, language, content, directory, now, now)
+    }
+  }
 
-	// Check if style guide exists for this language and directory
-	const existing = database
-		.prepare('SELECT id FROM style_guides WHERE language = ? AND directory = ?')
-		.get(language, directory) as {id: number} | undefined;
+  getStyleGuide(language: string, directory: string): StyleGuide | null {
+    const stmt = this.database.prepare(
+      "SELECT * FROM style_guides WHERE run_id = ? AND language = ? AND directory = ? ORDER BY updated_at DESC LIMIT 1",
+    )
+    const row = stmt.get(this.runId, language, directory) as
+      | {
+          id: number
+          run_id: string
+          language: string
+          content: string
+          directory: string
+          created_at: string
+          updated_at: string
+        }
+      | undefined
 
-	if (existing) {
-		// Update existing
-		const stmt = database.prepare(
-			'UPDATE style_guides SET content = ?, updated_at = ? WHERE id = ?',
-		);
-		stmt.run(content, now, existing.id);
-	} else {
-		// Insert new
-		const stmt = database.prepare(
-			'INSERT INTO style_guides (language, content, directory, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
-		);
-		stmt.run(language, content, directory, now, now);
-	}
-};
+    if (!row) return null
 
-export const getStyleGuide = (
-	language: string,
-	directory: string,
-): StyleGuide | null => {
-	const database = getDatabase();
-	const stmt = database.prepare(
-		'SELECT * FROM style_guides WHERE language = ? AND directory = ? ORDER BY updated_at DESC LIMIT 1',
-	);
-	const row = stmt.get(language, directory) as
-		| {
-				id: number;
-				language: string;
-				content: string;
-				directory: string;
-				created_at: string;
-				updated_at: string;
-		  }
-		| undefined;
+    return {
+      id: row.id,
+      project_path: row.directory,
+      language: row.language,
+      content: row.content,
+      created_at: row.created_at,
+    }
+  }
 
-	if (!row) return null;
+  getChildStyleGuides(parentDirectory: string, language: string): Array<{ directory: string; content: string }> {
+    const stmt = this.database.prepare(
+      `SELECT directory, content FROM style_guides
+       WHERE run_id = ? AND language = ? AND directory LIKE ?
+       AND directory != ?
+       ORDER BY directory`,
+    )
+    const rows = stmt.all(this.runId, language, `${parentDirectory}/%`, parentDirectory) as Array<{
+      directory: string
+      content: string
+    }>
 
-	return {
-		id: row.id,
-		project_path: row.directory,
-		language: row.language,
-		content: row.content,
-		created_at: row.created_at,
-	};
-};
+    // Filter to only immediate children (no additional slashes after parent)
+    const immediateChildren = rows.filter(row => {
+      const relativePath = row.directory.slice(parentDirectory.length + 1)
+      return !relativePath.includes("/")
+    })
 
-export const closeDatabase = (): void => {
-	if (db) {
-		db.close();
-		db = null;
-	}
-};
+    return immediateChildren.map(row => ({
+      directory: relative(parentDirectory, row.directory),
+      content: row.content,
+    }))
+  }
 
-// Handle process termination
-process.on('exit', closeDatabase);
-process.on('SIGINT', () => {
-	closeDatabase();
-	process.exit(0);
-});
-process.on('SIGTERM', () => {
-	closeDatabase();
-	process.exit(0);
-});
+  close(): void {
+    if (this.database) {
+      this.database.close()
+    }
+  }
+}
