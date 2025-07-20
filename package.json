@@ -1,6 +1,6 @@
 {
   "name": "context42",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "The best code style guide is the one your team already follows. This tool discovers it.",
   "type": "module",
   "author": "Zenbase AI",
