@@ -42,19 +42,11 @@ Context42 makes the implicit explicit. It reads your code like a new developer w
 
 ## How it works
 
-1. Recursively discovers code files in your project
+1. Recursively discovers code files in your project, respects your .gitignore
 2. Groups files by language extension
-3. Runs up to Gemini CLI concurrently to analyze code patterns
-4. Generates style guides (py.md, ts.md, go.md, etc.) based on your actual code
-
-The output isn't aspirational—it's descriptive. This is how you actually write code.
-
-
-## New Features
-
-- **Automatic Cleanup**: Temporary style files are automatically cleaned up after generation, ensuring no `style.*.md` files pollute your codebase
-- **Resume Capability**: Failed runs can be resumed using `--run` with the previous run ID
-- **Improved File Naming**: Style files now use a clearer naming pattern: `style.{ext}.md` (e.g., `style.ts.md`, `style.py.md`)
+3. Runs Gemini CLI concurrently to analyze code patterns
+4. Recursively generates style guides (py.md, ts.md, go.md, etc.) based on your actual code
+5. Writes style guides to your project
 
 ## Architecture
 
@@ -96,14 +88,9 @@ flowchart TD
 
 ## Development
 
-```bash
-pnpm install
-pnpm dev          # Watch mode
-pnpm test         # Run tests
-pnpm build        # Build for production
-```
+Install deps with `mise install`, then `pnpm install`, then check out the [justfile](./justfile) for other commands.
 
-Requires Node.js 20+ and a Gemini API key.
+Requires Node.js 22+ and a Gemini API key.
 
 ---
 

@@ -1,4 +1,4 @@
-import { join, relative } from "node:path"
+import path from "node:path"
 import { Box, Text, useApp } from "ink"
 import BigText from "ink-big-text"
 import Gradient from "ink-gradient"
@@ -11,7 +11,7 @@ import { useProcessor } from "./hooks/use-processor.js"
 import type { DB } from "./lib/database.js"
 import type { FileGroup, Language } from "./lib/types.js"
 
-const outputPath = (outputDir: string, lang: Language) => relative(outputDir, join(outputDir, `${lang}.md`))
+const outputPath = (outputDir: string, lang: Language) => path.join(outputDir, `${lang}.md`)
 
 export type IndexProps = {
   fileGroups: Map<Language, FileGroup[]>

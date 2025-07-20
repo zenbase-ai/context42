@@ -55,6 +55,7 @@
     "@types/react": "^19.1.8",
     "@vdemedes/prettier-config": "^2.0.1",
     "@vitest/ui": "^3.2.4",
+    "asciicast2gif": "^0.2.1",
     "chalk": "^5.2.0",
     "esbuild": "^0.25.6",
     "ink-testing-library": "^4.0.0",

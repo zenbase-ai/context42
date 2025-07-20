@@ -26,7 +26,7 @@ export const WorkersStatus: React.FC<WorkersStatusProps> = ({ workers, inputDir,
             agent.status === "idle"
               ? "Waiting..."
               : agent.status === "working"
-                ? agent.progress || "Booting..."
+                ? agent.progress || "Discovering..."
                 : agent.status === "success"
                   ? "Success"
                   : agent.error,
@@ -34,14 +34,7 @@ export const WorkersStatus: React.FC<WorkersStatusProps> = ({ workers, inputDir,
         .filter(agent => agent.directory),
     [workers, inputDir],
   )
-  const columnWidths = useMemo(
-    () => ({
-      agent: 8,
-      directory: 22,
-      status: 90,
-    }),
-    [],
-  )
+  const columnWidths = useMemo(() => ({ agent: 8, directory: 22, status: 90 }), [])
 
   if (workersViewModel.length === 0) return null
 
