@@ -57,9 +57,6 @@ importers:
         specifier: ^8.7.1
         version: 8.7.1
     devDependencies:
-      '@types/better-sqlite3':
-        specifier: ^7.6.13
-        version: 7.6.13
       '@types/object-hash':
         specifier: ^3.0.6
         version: 3.0.6
@@ -639,9 +636,6 @@ packages:
   '@sindresorhus/merge-streams@2.3.0':
     resolution: {integrity: sha512-LtoMMhxAlorcGhmFYI+LhPgbPZCkgP6ra1YL604EeF6U98pLlQ3iWIGMdWSC+vWmPBWBNgmDBAhnAobLROJmwg==}
     engines: {node: '>=18'}
-
-  '@types/better-sqlite3@7.6.13':
-    resolution: {integrity: sha512-NMv9ASNARoKksWtsq/SHakpYAYnhBrQgGD8zkLYk/jaK8jUGn08CfEdTRgYhMypUQAfzSP8W6gNLe0q19/t4VA==}
 
   '@types/chai@5.2.2':
     resolution: {integrity: sha512-8kB30R7Hwqf40JPiKhVzodJs2Qc1ZJ5zuT3uzw5Hq/dhNCl3G3l83jfpdI1e20BP348+fV7VIL/+FxaXkqBmWg==}
@@ -2991,10 +2985,6 @@ snapshots:
       selderee: 0.11.0
 
   '@sindresorhus/merge-streams@2.3.0': {}
-
-  '@types/better-sqlite3@7.6.13':
-    dependencies:
-      '@types/node': 24.0.14
 
   '@types/chai@5.2.2':
     dependencies:
