@@ -11,7 +11,7 @@ import { useProcessor } from "./hooks/use-processor.js"
 import type { DB } from "./lib/database.js"
 import type { FileGroup, Language } from "./lib/types.js"
 
-const _outputPath = (outputDir: string, lang: Language) => relative(outputDir, join(outputDir, `${lang}.md`))
+const outputPath = (outputDir: string, lang: Language) => relative(outputDir, join(outputDir, `${lang}.md`))
 
 export type IndexProps = {
   fileGroups: Map<Language, FileGroup[]>
@@ -70,7 +70,10 @@ export const Index: React.FC<IndexProps> = ({
             <Text color="green">✓ Style guides generated successfully!</Text>
           </Box>
           <Table
-            data={Array.from(results.entries()).map(([language, path]) => ({ language, path }))}
+            data={Array.from(results.entries()).map(([language]) => ({
+              language,
+              path: outputPath(outputDir, language),
+            }))}
             columnWidths={{ language: 16, path: 32 }}
           />
         </>
@@ -84,7 +87,7 @@ export const Index: React.FC<IndexProps> = ({
         </>
       ) : (
         <>
-          <ProgressBar value={progress} max={total} label="analyzed files" />
+          <ProgressBar value={progress} max={total} label="files" />
           <WorkersStatus workers={workers} inputDir={inputDir} queuedTasks={queuedTasks} />
         </>
       )}
