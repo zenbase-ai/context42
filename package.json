@@ -20,7 +20,8 @@
     "formatting"
   ],
   "files": [
-    "dist"
+    "dist",
+    "scripts"
   ],
   "bin": "dist/main.js",
   "scripts": {
