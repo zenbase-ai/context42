@@ -8,9 +8,8 @@ Let a little AI magic loose in your repo: context42 explores your codebase, chat
 
 1. Recursively discovers code files in your project, respects your .gitignore
 2. Groups files by language extension
-3. Runs Gemini CLI concurrently to analyze code patterns
-4. Recursively generates style guides (`py.md`, `ts.md`, `go.md`, etc.) based on your actual code
-5. Writes style guides to your project
+3. Runs Gemini CLI concurrently and recursively to analyze code patterns
+4. Generates style guides (`py.md`, `ts.md`, `go.md`, etc.) based on your actual code
 
 ## Quick Start
 
@@ -40,8 +39,8 @@ context42 -o .cursor/rules/
 # Set max concurrent Gemini processes (default: 4)
 context42 --concurrency 8
 
-# Resume from a previous run (useful for debugging)
-context42 --run abc123-def456
+# Resume from a previous run
+context42 --run 123e4567-e89b-12d3-a456-426614174000
 ```
 
 ## Why
