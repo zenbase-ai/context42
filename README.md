@@ -4,6 +4,14 @@
 
 Let a little AI magic loose in your repo: context42 explores your codebase, chats with Google Gemini, and conjures up custom style guides for every language it finds.
 
+## How it works
+
+1. Recursively discovers code files in your project, respects your .gitignore
+2. Groups files by language extension
+3. Runs Gemini CLI concurrently to analyze code patterns
+4. Recursively generates style guides (`py.md`, `ts.md`, `go.md`, etc.) based on your actual code
+5. Writes style guides to your project
+
 ## Quick Start
 
 ```bash
@@ -11,7 +19,11 @@ $ export GEMINI_API_KEY="..."
 $ npx context42 # or bunx, pnpx, yarn dlx, requires Node ≥22.0
 ```
 
-See context42's output on this repo in [./cursor/rules/](./cursor/rules/)
+**Output:** context42's style guides for this repo's [.ts](./cursor/rules/ts.md) and [.tsx](./cursor/rules/tsx.md) code.
+
+<img src="./assets/action.png" alt="context42 in action" width="600"/>
+<img src="./assets/result.png" alt="context42 result" width="600"/>
+
 
 ## Usage
 
@@ -39,14 +51,6 @@ Every codebase has implicit style rules. The problem is they're locked in develo
 New team members guess. PRs get bikeshedded. Time gets wasted on "should we use `interface` or `type`?" when the answer is already in your code—if you look at the patterns.
 
 Context42 makes the implicit explicit. It reads your code like a new developer would, but with perfect memory and pattern recognition.
-
-## How it works
-
-1. Recursively discovers code files in your project, respects your .gitignore
-2. Groups files by language extension
-3. Runs Gemini CLI concurrently to analyze code patterns
-4. Recursively generates style guides (py.md, ts.md, go.md, etc.) based on your actual code
-5. Writes style guides to your project
 
 ## Architecture
 

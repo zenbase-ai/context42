@@ -100,10 +100,9 @@ export const generateStyleGuide = async ({
         "[PROGRESS] Translating cryptic TODOs into ancient developer runes...",
         "[PROGRESS] Playing hide-and-seek with global variables (they always win)",
         "[PROGRESS] Summoning the spirit of clean code with a ritual of semicolons and whitespace",
-        "[PROGRESS] Refactoring spaghetti into lasagna—layer by delicious layer",
       ],
       requires: ["fun", "whimsy", "playful", "engaging"],
-      rules: ["the user will only see the first line of [PROGRESS]"],
+      constraints: ["the user will only see the first line of [PROGRESS], so no newlines"],
     },
     context: {
       directory: baseDir,

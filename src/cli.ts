@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { homedir } from "node:os"
 import { join, resolve } from "node:path"
-import { cancel, intro, isCancel, multiselect, outro, spinner, text } from "@clack/prompts"
+import { cancel, intro, isCancel, multiselect, outro, spinner } from "@clack/prompts"
 import { sum } from "es-toolkit"
 import meow from "meow"
 import { cleanupRegistry } from "./lib/cleanup-registry.js"
@@ -122,7 +122,7 @@ export const cli = async (): Promise<CLIResult | null> => {
 
   // Initialize database
   const database = new DB(join(homedir(), ".context42", "data.db"), entrypoint.flags.run)
-  outro(`Beginning run ${database.runId}...`)
+  outro(`Beginning run ${database.runId}`)
 
   // Set up signal handlers for proper cleanup
   const cleanup = async () => {
