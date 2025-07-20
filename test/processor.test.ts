@@ -1,4 +1,5 @@
 import { expect, test, vi } from "vitest"
+import path from "node:path"
 import { DB } from "../src/lib/database"
 import { createStyleGuideProcessor } from "../src/lib/processor"
 import type { FileGroup, Language } from "../src/lib/types"
@@ -23,14 +24,17 @@ vi.mock("node:fs/promises", () => ({
   unlink: vi.fn().mockResolvedValue(undefined),
 }))
 
+// Helper to create test paths
+const testPath = (...segments: string[]) => path.join("test", ...segments)
+
 // Helper to create a test database
 const createTestDatabase = (): DB => {
   const db = new DB(":memory:")
   db.init()
 
   // Pre-populate with some test data if needed
-  db.saveStyleGuide("ts", "# Lib Style Guide", "src/lib")
-  db.saveStyleGuide("ts", "# Components Style Guide", "src/components")
+  db.saveStyleGuide("ts", "# Lib Style Guide", path.join("src", "lib"))
+  db.saveStyleGuide("ts", "# Components Style Guide", path.join("src", "components"))
 
   return db
 }
@@ -40,7 +44,7 @@ test("processor initializes workers correctly", () => {
   const processor = createStyleGuideProcessor({
     model: "test-model",
     concurrency: 4,
-    inputDir: "/test/dir",
+    inputDir: testPath("dir"),
     database,
   })
 
@@ -65,7 +69,7 @@ test("processor processes file groups", async () => {
     onProgress: current => {
       progressUpdates.push({ current, total: 3 })
     },
-    inputDir: "/test/dir",
+    inputDir: testPath("dir"),
   })
 
   const fileGroups = new Map<Language, FileGroup[]>([
@@ -74,12 +78,12 @@ test("processor processes file groups", async () => {
       [
         {
           language: "ts",
-          directory: "/test/src",
+          directory: testPath("src"),
           files: ["index.ts", "app.tsx"],
         },
         {
           language: "ts",
-          directory: "/test/lib",
+          directory: testPath("lib"),
           files: ["utils.ts"],
         },
       ],
@@ -89,7 +93,7 @@ test("processor processes file groups", async () => {
       [
         {
           language: "py",
-          directory: "/test/scripts",
+          directory: testPath("scripts"),
           files: ["main.py"],
         },
       ],
@@ -98,8 +102,8 @@ test("processor processes file groups", async () => {
 
   const results = await processor.run({
     fileGroups,
-    inputDir: "/test/dir",
-    outputDir: "/test/output",
+    inputDir: testPath("dir"),
+    outputDir: testPath("output"),
   })
 
   // Check results (now returns map with languages for UI display)
@@ -115,7 +119,7 @@ test("processor processes file groups", async () => {
   expect(progressUpdates[progressUpdates.length - 1]).toEqual({ current: 4, total: 3 })
 
   // Verify style guides were saved to database
-  const tsGuide = database.getStyleGuide("ts", "/test/src")
+  const tsGuide = database.getStyleGuide("ts", testPath("src"))
   expect(tsGuide).not.toBeNull()
   expect(tsGuide?.content).toContain("TS Style Guide")
 
@@ -147,7 +151,7 @@ test("processor handles errors gracefully", async () => {
         error: worker.error,
       })
     },
-    inputDir: "/test/dir",
+    inputDir: testPath("dir"),
   })
 
   const fileGroups = new Map<Language, FileGroup[]>([
@@ -156,12 +160,12 @@ test("processor handles errors gracefully", async () => {
       [
         {
           language: "ts",
-          directory: "/test/src",
+          directory: testPath("src"),
           files: ["index.ts"],
         },
         {
           language: "ts",
-          directory: "/test/lib",
+          directory: testPath("lib"),
           files: ["utils.ts"],
         },
       ],
@@ -170,8 +174,8 @@ test("processor handles errors gracefully", async () => {
 
   await processor.run({
     fileGroups,
-    inputDir: "/test/dir",
-    outputDir: "/test/output",
+    inputDir: testPath("dir"),
+    outputDir: testPath("output"),
   })
 
   // Worker should have error status
@@ -195,7 +199,7 @@ test("processor queries child style guides and passes them to generator", async 
   const processor = createStyleGuideProcessor({
     concurrency: 1,
     model: "test-model",
-    inputDir: "/test/dir",
+    inputDir: testPath("dir"),
     database,
   })
 
@@ -214,8 +218,8 @@ test("processor queries child style guides and passes them to generator", async 
 
   await processor.run({
     fileGroups,
-    inputDir: "/test/dir",
-    outputDir: "/test/output",
+    inputDir: testPath("dir"),
+    outputDir: testPath("output"),
   })
 
   // Verify generateStyleGuide was called with correct parameters
@@ -249,7 +253,7 @@ test("processor reset clears state", async () => {
   const processor = createStyleGuideProcessor({
     model: "test-model",
     concurrency: 2,
-    inputDir: "/test/dir",
+    inputDir: testPath("dir"),
     database,
     onWorkerUpdate: worker => {
       if (worker.status === "idle" && !worker.directory && !worker.language) {
@@ -265,7 +269,7 @@ test("processor reset clears state", async () => {
       [
         {
           language: "ts",
-          directory: "/test/src",
+          directory: testPath("src"),
           files: ["index.ts"],
         },
       ],
@@ -275,8 +279,8 @@ test("processor reset clears state", async () => {
   // Run some work
   await processor.run({
     fileGroups,
-    inputDir: "/test/dir",
-    outputDir: "/test/output",
+    inputDir: testPath("dir"),
+    outputDir: testPath("output"),
   })
 
   // Reset
@@ -304,7 +308,7 @@ test("processor distributes work across multiple workers concurrently", async ()
   const processor = createStyleGuideProcessor({
     model: "test-model",
     concurrency: 3,
-    inputDir: "/test/dir",
+    inputDir: testPath("dir"),
     database,
     onWorkerUpdate: worker => {
       if (worker.status === "working") {
@@ -321,19 +325,19 @@ test("processor distributes work across multiple workers concurrently", async ()
     [
       "ts",
       [
-        { language: "ts", directory: "/test/src1", files: ["file1.ts"] },
-        { language: "ts", directory: "/test/src2", files: ["file2.ts"] },
-        { language: "ts", directory: "/test/src3", files: ["file3.ts"] },
-        { language: "ts", directory: "/test/src4", files: ["file4.ts"] },
-        { language: "ts", directory: "/test/src5", files: ["file5.ts"] },
+        { language: "ts", directory: testPath("src1"), files: ["file1.ts"] },
+        { language: "ts", directory: testPath("src2"), files: ["file2.ts"] },
+        { language: "ts", directory: testPath("src3"), files: ["file3.ts"] },
+        { language: "ts", directory: testPath("src4"), files: ["file4.ts"] },
+        { language: "ts", directory: testPath("src5"), files: ["file5.ts"] },
       ],
     ],
   ])
 
   await processor.run({
     fileGroups,
-    inputDir: "/test/dir",
-    outputDir: "/test/output",
+    inputDir: testPath("dir"),
+    outputDir: testPath("output"),
   })
 
   // Calculate the maximum number of concurrent workers
@@ -344,11 +348,11 @@ test("processor distributes work across multiple workers concurrently", async ()
 
   // Verify all tasks were processed
   const savedGuides = [
-    database.getStyleGuide("ts", "/test/src1"),
-    database.getStyleGuide("ts", "/test/src2"),
-    database.getStyleGuide("ts", "/test/src3"),
-    database.getStyleGuide("ts", "/test/src4"),
-    database.getStyleGuide("ts", "/test/src5"),
+    database.getStyleGuide("ts", testPath("src1")),
+    database.getStyleGuide("ts", testPath("src2")),
+    database.getStyleGuide("ts", testPath("src3")),
+    database.getStyleGuide("ts", testPath("src4")),
+    database.getStyleGuide("ts", testPath("src5")),
   ]
   expect(savedGuides.every(g => g !== null)).toBe(true)
 
@@ -370,7 +374,7 @@ test("processor respects concurrency limit", async () => {
   const processor = createStyleGuideProcessor({
     model: "test-model",
     concurrency: 2, // Only 2 workers
-    inputDir: "/test/dir",
+    inputDir: testPath("dir"),
     database,
     onWorkerUpdate: worker => {
       if (worker.status === "working") {
@@ -388,7 +392,7 @@ test("processor respects concurrency limit", async () => {
       "ts",
       Array.from({ length: 5 }, (_, i) => ({
         language: "ts" as Language,
-        directory: `/test/src${i}`,
+        directory: testPath(`src${i}`),
         files: [`file${i}.ts`],
       })),
     ],
@@ -396,8 +400,8 @@ test("processor respects concurrency limit", async () => {
 
   await processor.run({
     fileGroups,
-    inputDir: "/test/dir",
-    outputDir: "/test/output",
+    inputDir: testPath("dir"),
+    outputDir: testPath("output"),
   })
 
   // Verify we never exceeded the concurrency limit
@@ -423,7 +427,7 @@ test("processor reuses workers after completion", async () => {
   const processor = createStyleGuideProcessor({
     model: "test-model",
     concurrency: 2, // Only 2 workers for 5 tasks
-    inputDir: "/test/dir",
+    inputDir: testPath("dir"),
     database,
     onWorkerUpdate: worker => {
       if (worker.status === "working" && worker.directory) {
@@ -440,7 +444,7 @@ test("processor reuses workers after completion", async () => {
       "ts",
       Array.from({ length: 5 }, (_, i) => ({
         language: "ts" as Language,
-        directory: `/test/src${i}`,
+        directory: testPath(`src${i}`),
         files: [`file${i}.ts`],
       })),
     ],
@@ -448,8 +452,8 @@ test("processor reuses workers after completion", async () => {
 
   await processor.run({
     fileGroups,
-    inputDir: "/test/dir",
-    outputDir: "/test/output",
+    inputDir: testPath("dir"),
+    outputDir: testPath("output"),
   })
 
   // Each worker should have processed multiple tasks
@@ -473,7 +477,7 @@ test("processor handles uneven work distribution", async () => {
   const processor = createStyleGuideProcessor({
     model: "test-model",
     concurrency: 3,
-    inputDir: "/test/dir",
+    inputDir: testPath("dir"),
     database,
     onWorkerUpdate: worker => {
       if (worker.status === "working") {
@@ -487,18 +491,18 @@ test("processor handles uneven work distribution", async () => {
     [
       "ts",
       [
-        { language: "ts", directory: "/test/src1", files: ["file1.ts"] },
-        { language: "ts", directory: "/test/src2", files: ["file2.ts"] },
-        { language: "ts", directory: "/test/src3", files: ["file3.ts"] },
-        { language: "ts", directory: "/test/src4", files: ["file4.ts"] },
+        { language: "ts", directory: testPath("src1"), files: ["file1.ts"] },
+        { language: "ts", directory: testPath("src2"), files: ["file2.ts"] },
+        { language: "ts", directory: testPath("src3"), files: ["file3.ts"] },
+        { language: "ts", directory: testPath("src4"), files: ["file4.ts"] },
       ],
     ],
   ])
 
   const results = await processor.run({
     fileGroups,
-    inputDir: "/test/dir",
-    outputDir: "/test/output",
+    inputDir: testPath("dir"),
+    outputDir: testPath("output"),
   })
 
   // Results should contain the processed language
@@ -529,7 +533,7 @@ test("processor assigns work to available workers correctly", async () => {
   const processor = createStyleGuideProcessor({
     model: "test-model",
     concurrency: 3,
-    inputDir: "/test/dir",
+    inputDir: testPath("dir"),
     database,
     onWorkerUpdate: worker => {
       if (worker.status === "working" && worker.directory) {
@@ -545,17 +549,17 @@ test("processor assigns work to available workers correctly", async () => {
     [
       "ts",
       [
-        { language: "ts", directory: "/src1", files: ["file1.ts"] },
-        { language: "ts", directory: "/src2", files: ["file2.ts"] },
-        { language: "ts", directory: "/src3", files: ["file3.ts"] },
+        { language: "ts", directory: "src1", files: ["file1.ts"] },
+        { language: "ts", directory: "src2", files: ["file2.ts"] },
+        { language: "ts", directory: "src3", files: ["file3.ts"] },
       ],
     ],
   ])
 
   await processor.run({
     fileGroups,
-    inputDir: "/test/dir",
-    outputDir: "/test/output",
+    inputDir: testPath("dir"),
+    outputDir: testPath("output"),
   })
 
   // All tasks should be assigned
@@ -566,7 +570,7 @@ test("processor assigns work to available workers correctly", async () => {
 
   // All directories should be processed
   const processedDirs = workerAssignments.map(a => a.directory).sort()
-  expect(processedDirs).toEqual(["/src1", "/src2", "/src3"])
+  expect(processedDirs).toEqual(["src1", "src2", "src3"])
 
   database.close()
 })
@@ -582,7 +586,7 @@ test("processor cleans up style files on successful completion", async () => {
   const processor = createStyleGuideProcessor({
     model: "test-model",
     concurrency: 2,
-    inputDir: "/test/dir",
+    inputDir: testPath("dir"),
     database,
   })
 
@@ -590,36 +594,36 @@ test("processor cleans up style files on successful completion", async () => {
     [
       "ts",
       [
-        { language: "ts", directory: "/test/src", files: ["index.ts"] },
-        { language: "ts", directory: "/test/lib", files: ["utils.ts"] },
+        { language: "ts", directory: testPath("src"), files: ["index.ts"] },
+        { language: "ts", directory: testPath("lib"), files: ["utils.ts"] },
       ],
     ],
     [
       "py",
       [
-        { language: "py", directory: "/test/scripts", files: ["main.py"] },
+        { language: "py", directory: testPath("scripts"), files: ["main.py"] },
       ],
     ],
   ])
 
   await processor.run({
     fileGroups,
-    inputDir: "/test/dir",
-    outputDir: "/test/output",
+    inputDir: testPath("dir"),
+    outputDir: testPath("output"),
   })
 
   // Verify rename was called (last directory wins for each language)
   expect(vi.mocked(rename)).toHaveBeenCalledWith(
-    "/test/lib/style.ts.md",
-    "/test/output/ts.md"
+    testPath("lib", "style.ts.md"),
+    testPath("output", "ts.md")
   )
   expect(vi.mocked(rename)).toHaveBeenCalledWith(
-    "/test/scripts/style.py.md",
-    "/test/output/py.md"
+    testPath("scripts", "style.py.md"),
+    testPath("output", "py.md")
   )
 
   // Verify unlink was called for the first typescript file (not moved)
-  expect(vi.mocked(unlink)).toHaveBeenCalledWith("/test/src/style.ts.md")
+  expect(vi.mocked(unlink)).toHaveBeenCalledWith(testPath("src", "style.ts.md"))
 
   database.close()
 })
@@ -635,7 +639,7 @@ test("processor cleans up style files on rename failure", async () => {
   const processor = createStyleGuideProcessor({
     model: "test-model",
     concurrency: 1,
-    inputDir: "/test/dir",
+    inputDir: testPath("dir"),
     database,
   })
 
@@ -643,25 +647,25 @@ test("processor cleans up style files on rename failure", async () => {
     [
       "ts",
       [
-        { language: "ts", directory: "/test/src", files: ["index.ts"] },
+        { language: "ts", directory: testPath("src"), files: ["index.ts"] },
       ],
     ],
   ])
 
   await processor.run({
     fileGroups,
-    inputDir: "/test/dir",
-    outputDir: "/test/output",
+    inputDir: testPath("dir"),
+    outputDir: testPath("output"),
   })
 
   // Verify rename was attempted
   expect(vi.mocked(rename)).toHaveBeenCalledWith(
-    "/test/src/style.ts.md",
-    "/test/output/ts.md"
+    testPath("src", "style.ts.md"),
+    testPath("output", "ts.md")
   )
 
   // Verify unlink was called to clean up the file
-  expect(vi.mocked(unlink)).toHaveBeenCalledWith("/test/src/style.ts.md")
+  expect(vi.mocked(unlink)).toHaveBeenCalledWith(testPath("src", "style.ts.md"))
 
   database.close()
 })
@@ -685,7 +689,7 @@ test("processor cleans up style files on error during generation", async () => {
   const processor = createStyleGuideProcessor({
     model: "test-model",
     concurrency: 1,
-    inputDir: "/test/dir",
+    inputDir: testPath("dir"),
     database,
   })
 
@@ -693,27 +697,27 @@ test("processor cleans up style files on error during generation", async () => {
     [
       "ts",
       [
-        { language: "ts", directory: "/test/src", files: ["index.ts"] },
+        { language: "ts", directory: testPath("src"), files: ["index.ts"] },
       ],
     ],
     [
       "py",
       [
-        { language: "py", directory: "/test/scripts", files: ["main.py"] }, // This will fail
+        { language: "py", directory: testPath("scripts"), files: ["main.py"] }, // This will fail
       ],
     ],
   ])
 
   await processor.run({
     fileGroups,
-    inputDir: "/test/dir",
-    outputDir: "/test/output",
+    inputDir: testPath("dir"),
+    outputDir: testPath("output"),
   })
 
   // TypeScript file should have been moved successfully
   expect(vi.mocked(rename)).toHaveBeenCalledWith(
-    "/test/src/style.ts.md",
-    "/test/output/ts.md"
+    testPath("src", "style.ts.md"),
+    testPath("output", "ts.md")
   )
 
   // No files should be cleaned up - python file wasn't created due to error
@@ -744,7 +748,7 @@ test("processor uses correct file extensions for different languages", async () 
     const processor = createStyleGuideProcessor({
       model: "test-model",
       concurrency: 1,
-      inputDir: "/test/dir",
+      inputDir: testPath("dir"),
       database,
     })
 
@@ -752,19 +756,19 @@ test("processor uses correct file extensions for different languages", async () 
       [
         language,
         [
-          { language, directory: `/test/${language}`, files: [`file.${extension}`] },
+          { language, directory: testPath(language), files: [`file.${extension}`] },
         ],
       ],
     ])
 
     await processor.run({
       fileGroups,
-      inputDir: "/test/dir",
-      outputDir: "/test/output",
+      inputDir: testPath("dir"),
+      outputDir: testPath("output"),
     })
 
     // Verify the correct style file was created
-    const styleGuide = database.getStyleGuide(language, `/test/${language}`)
+    const styleGuide = database.getStyleGuide(language, testPath(language))
     expect(styleGuide).not.toBeNull()
   }
 
@@ -791,7 +795,7 @@ test("processor respects directory dependencies - children processed before pare
   const processor = createStyleGuideProcessor({
     model: "test-model",
     concurrency: 3,
-    inputDir: "/test/dir",
+    inputDir: testPath("dir"),
     database,
     onWorkerUpdate: worker => {
       if (worker.status === "working" && worker.directory) {
@@ -805,27 +809,27 @@ test("processor respects directory dependencies - children processed before pare
     [
       "ts",
       [
-        { language: "ts", directory: "/app", files: ["app.ts"] },
-        { language: "ts", directory: "/app/src", files: ["index.ts"] },
-        { language: "ts", directory: "/app/src/lib", files: ["utils.ts"] },
-        { language: "ts", directory: "/app/src/components", files: ["Button.tsx"] },
-        { language: "ts", directory: "/app/test", files: ["test.ts"] },
+        { language: "ts", directory: path.join("app"), files: ["app.ts"] },
+        { language: "ts", directory: path.join("app", "src"), files: ["index.ts"] },
+        { language: "ts", directory: path.join("app", "src", "lib"), files: ["utils.ts"] },
+        { language: "ts", directory: path.join("app", "src", "components"), files: ["Button.tsx"] },
+        { language: "ts", directory: path.join("app", "test"), files: ["test.ts"] },
       ],
     ],
   ])
 
   await processor.run({
     fileGroups,
-    inputDir: "/test/dir",
-    outputDir: "/test/output",
+    inputDir: testPath("dir"),
+    outputDir: testPath("output"),
   })
 
   // Verify processing order: children should be processed before parents
-  const appIndex = processingOrder.indexOf("/app")
-  const srcIndex = processingOrder.indexOf("/app/src")
-  const libIndex = processingOrder.indexOf("/app/src/lib")
-  const componentsIndex = processingOrder.indexOf("/app/src/components")
-  const testIndex = processingOrder.indexOf("/app/test")
+  const appIndex = processingOrder.indexOf(path.join("app"))
+  const srcIndex = processingOrder.indexOf(path.join("app", "src"))
+  const libIndex = processingOrder.indexOf(path.join("app", "src", "lib"))
+  const componentsIndex = processingOrder.indexOf(path.join("app", "src", "components"))
+  const testIndex = processingOrder.indexOf(path.join("app", "test"))
 
 
   // Grandchildren before children
@@ -838,12 +842,12 @@ test("processor respects directory dependencies - children processed before pare
 
   // Verify parent directories saw their children's style guides
   // /app should see guides from src and test
-  expect(childGuidesSeenByParent["/app"]).toContain("src")
-  expect(childGuidesSeenByParent["/app"]).toContain("test")
+  expect(childGuidesSeenByParent[path.join("app")]).toContain("src")
+  expect(childGuidesSeenByParent[path.join("app")]).toContain("test")
 
   // /app/src should see guides from lib and components
-  expect(childGuidesSeenByParent["/app/src"]).toContain("lib")
-  expect(childGuidesSeenByParent["/app/src"]).toContain("components")
+  expect(childGuidesSeenByParent[path.join("app", "src")]).toContain("lib")
+  expect(childGuidesSeenByParent[path.join("app", "src")]).toContain("components")
 
   database.close()
 })
