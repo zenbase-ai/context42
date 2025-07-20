@@ -12,7 +12,7 @@ dev:
   pnpm vitest
 
 build:
-  node build.js
+  node scripts/build.js
 
 typecheck:
   pnpm tsc --noEmit

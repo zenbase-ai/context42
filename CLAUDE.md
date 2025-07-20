@@ -9,291 +9,142 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Context42 is a TypeScript CLI project that is currently transitioning from an Oclif-based architecture (in the archive folder) to an Ink-based interactive CLI using React components. The project aims to integrate Google Gemini CLI for AI-powered code analysis and uses SQLite for local data persistence.
+Context42 is a TypeScript CLI that generates style guides for codebases using Google Gemini AI. It analyzes code files, generates language-specific style documentation, and provides an interactive terminal UI built with Ink (React for CLIs).
 
 ## Development Commands
 
-All commands are run through `just` (see justfile). The project uses:
-- `.env` file loading enabled by default
-- Biome for formatting and linting
-- Vitest for testing
-- Bunup for building
+All commands use `just` (justfile). Key commands:
 
-### Build & Development
-
-- `just dev` - Watch mode for development (runs bunup --watch)
-- `just build` - Production build (runs bunup)
-- `just cli [args]` - Build and run the CLI with arguments
-
-### Testing
-
-- `just test [args]` - Run tests with vitest (can pass file path or other vitest args)
-- `just coverage` - Generate test coverage report
-
-### Code Quality
-
-- `just fmt` - Format code with Biome (auto-fix with --write --unsafe)
-- `just lint` - Lint code with Biome (check only with --unsafe)
-
-### External CLIs
-
-- `just claude [args]` - Run Claude Code CLI via bunx
+- `just dev` - Run tests in watch mode
+- `just build` - Production build with esbuild
+- `just cli [args]` - Build and run the CLI
+- `just test [args]` - Run tests with vitest (can pass file paths)
+- `just fmt` - Format code with Biome
+- `just lint` - Lint code with Biome
+- `just claude [args]` - Run Claude CLI via bunx
 - `just gemini [args]` - Run Gemini CLI via bunx
+- `just publish <version>` - Bump version and publish to npm
 
-### Publishing
+### CLI Usage
 
-- `just publish <version>` - Bump version with pnpm and publish to npm
+```bash
+# Basic usage
+just cli -i ./src -o ./docs
 
-## Architecture & Structure
+# Resume failed run
+just cli --run <run-id>
 
-### Important Patterns
+# Debug mode (shows run ID)
+just cli --debug
 
-1. The project uses ESM modules (type: "module" in package.json)
-2. TypeScript is configured with strict mode and path aliases (@/_ -> ./src/_)
-3. Database operations use SQLite with migrations stored in ~/.context42/data.db
-4. Gemini CLI integration uses ZX for shell command execution with proper error handling for authentication and missing CLI scenarios
+# Custom concurrency
+just cli -c 8
+```
 
-## Lint and Type Checking
+## Architecture
 
-- **Biome** is used for both formatting and linting (replaced Prettier and XO)
-- TypeScript compiler (tsc) is available for type checking via the build command
-- Use `just fmt` for auto-formatting and `just lint` for checking
+### Core Modules
 
-## Rules
+1. **Explorer** (`src/lib/explorer.ts`)
+   - Discovers files using globby
+   - Groups by language extension
+   - Filters common ignore patterns
+   - Returns structured FileInfo objects
 
-- Use `fd`, not `find`
-- Use `rg`, not `grep`
-- Use `const myFn = () => {}` instead of `function myFn() {}`
-- Use `const MyComponent: React.FC<MyComponentProps> = ({}) => {}` instead of `const MyComponent = ({}: MyComponentProps) => {}`
-- Prefer `type` to `interface`
-- Prefer a lightweight functional style that minimizes lines of code vs. class based
+2. **Processor** (`src/lib/processor.ts`)
+   - Worker pool pattern with abort support
+   - Dependency-aware processing (children before parents)
+   - Automatic cleanup via file registry
+   - Configurable concurrency (default: 4)
+   - Task distribution and result collection
 
-## Project Structure Details
+3. **Generator** (`src/lib/generator.ts`)
+   - Creates Gemini prompts for style analysis
+   - Executes via ZX shell commands
+   - Handles rate limiting and errors
+   - Parses AI responses
 
-### Core Components
-
-- **Explorer** (`src/lib/explorer.ts`): Recursively discovers files and directories in the project
-  - Uses `globby` for file pattern matching
-  - Filters out common ignore patterns (node_modules, .git, etc.)
-  - Returns structured file/directory information
-
-- **Processor** (`src/lib/processor.ts`): Manages concurrent worker processes for analyzing code
-  - Implements worker pool pattern with configurable concurrency (default: 8)
-  - Uses `p-limit` for concurrency control
-  - Handles task distribution and result collection
-  - Tracks all created `style.{ext}.md` files for cleanup
-  - Automatically cleans up temporary files in finally block using `unlink`
-  - Only moves the last file per language to output directory
-
-- **Generator** (`src/lib/generator.ts`): Generates prompts and processes Gemini AI responses
-  - Creates context-aware prompts for style guide generation
-  - Parses and structures AI responses
-  - Handles different programming languages
-
-- **Database** (`src/lib/database.ts`): SQLite persistence layer
-  - Stores Gemini responses and style guides with run IDs
-  - Located at `~/.context42/data.db`
-  - Automatic table creation on first run
-  - Proper connection lifecycle management
-  - Supports resuming runs with existing run ID via constructor parameter
+4. **Database** (`src/lib/database.ts`)
+   - SQLite at `~/.context42/data.db`
+   - Stores responses and style guides
+   - Run ID-based session management
+   - Resume capability via constructor
 
 ### UI Components (Ink/React)
 
-- **ExplorerStatus** (`src/components/ExplorerStatus.tsx`): Shows file discovery progress
-- **WorkerStatus** (`src/components/WorkerStatus.tsx`): Displays status of concurrent workers
-- **ProgressBar** (`src/components/ProgressBar.tsx`): Visual progress indicator
+- **App** (`src/components/App.tsx`) - Main orchestrator
+- **ExplorerStatus** - File discovery progress
+- **WorkerStatus** - Worker pool monitoring
+- **ProgressBar** - Visual progress indicator
+- **Table** - Results display
 
-## Database Schema
+### Key Patterns
 
-```sql
--- Gemini AI responses
-CREATE TABLE responses (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    run_id TEXT NOT NULL,
-    result TEXT NOT NULL,
-    created_at DATETIME NOT NULL
-);
-CREATE INDEX idx_responses_lookup ON responses(run_id, created_at DESC);
+- **File Registry**: Tracks temporary files for guaranteed cleanup
+- **Abort Controller**: Cancellable operations throughout
+- **Run IDs**: UUID-based session tracking for resume
+- **Worker Pool**: Concurrent processing with proper error handling
+- **Dependency Ordering**: Process child directories before parents
 
--- Style guides for different languages
-CREATE TABLE style_guides (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    run_id TEXT NOT NULL,
-    language TEXT NOT NULL,
-    content TEXT NOT NULL,
-    directory TEXT NOT NULL,
-    created_at DATETIME NOT NULL,
-    updated_at DATETIME NOT NULL
-);
-CREATE INDEX idx_style_guides_lookup ON style_guides(run_id, language, directory);
-```
+## Code Style
 
-## Testing Guidelines
+- Arrow functions: `const fn = () => {}`
+- React components: `const Component: React.FC<Props> = ({}) => {}`
+- Prefer `type` over `interface`
+- Functional style over classes
+- Use path aliases: `@/*` → `./src/*`
+- No default exports
 
-### Test Framework: Vitest
-- Test files use `.test.ts` or `.test.tsx` extension
-- Located alongside source files in `test/` directory
-- Uses Vitest for fast, ESM-native testing
-- React component testing with `ink-testing-library`
+## Testing
 
-### Test Patterns
+Tests use Vitest with mocking for external dependencies:
+
 ```typescript
-// Unit test example
-test('component renders correctly', () => {
-  const {lastFrame} = render(<Component />);
-  expect(lastFrame()).toMatch('expected output');
-});
+// Mock Gemini CLI
+vi.mocked($).mockResolvedValue({ stdout: 'response' })
 
-// Database test example
-test('saves and retrieves style guide', () => {
-  const db = new DB(':memory:');
-  db.init();
-  db.saveStyleGuide('typescript', '# Style Guide', '/project');
-  const guide = db.getStyleGuide('typescript', '/project');
-  expect(guide?.content).toBe('# Style Guide');
-  db.close();
-});
+// Mock file system
+vi.mocked(writeFile).mockResolvedValue()
 
-// Cleanup test example
-test('processor cleans up style files on error', async () => {
-  const { rename, unlink } = await import("node:fs/promises")
-  vi.mocked(rename).mockReset().mockRejectedValue(new Error("Permission denied"))
-  vi.mocked(unlink).mockReset().mockResolvedValue(undefined)
-  
-  await processor.run({ fileGroups, inputDir, outputDir })
-  
-  expect(vi.mocked(unlink)).toHaveBeenCalledWith("/test/src/style.ts.md")
-});
+// In-memory database
+const db = new DB(':memory:')
 ```
 
-## Integration with Gemini CLI
+Run tests:
+- `just test` - All tests
+- `just test path/to/file` - Specific file
+- `just coverage` - Coverage report
 
-### Execution Pattern
-```typescript
-// Using ZX for shell command execution
-import {$} from 'zx';
+## Environment Setup
 
-const runGemini = async (prompt: string) => {
-  try {
-    const result = await $`bunx @google/gemini-cli "${prompt}"`;
-    return result.stdout;
-  } catch (error) {
-    // Handle authentication errors
-    // Handle missing CLI errors
-  }
-};
-```
+- Node.js 20+ (managed via mise.toml)
+- `GEMINI_API_KEY` required for AI features
+- ESM modules throughout
+- Biome for formatting (2 spaces, double quotes)
 
-### Error Handling
-- Check for missing GEMINI_API_KEY environment variable
-- Handle Gemini CLI not installed scenarios
-- Implement exponential backoff for rate limiting
+## Error Handling
 
-## Code Style Conventions
-
-### TypeScript Patterns
-- Strict mode enabled in tsconfig.json
-- Path aliases: `@/*` maps to `./src/*`
-- Prefer `type` over `interface` for type definitions
-- Use arrow functions: `const fn = () => {}`
-- Functional style over class-based approach
-
-### React/Ink Components
-```typescript
-// Component definition pattern
-type MyComponentProps = {
-  prop1: string;
-  prop2?: number;
-};
-
-export const MyComponent: React.FC<MyComponentProps> = ({prop1, prop2 = 0}) => {
-  return <Text>{prop1}: {prop2}</Text>;
-};
-```
-
-### File Organization
-- One component per file
-- Co-locate types with implementation
-- Export types alongside implementations
-- Use named exports (avoid default exports)
-
-## Build and Development Workflow
-
-### Development Mode
-- `just dev` - Runs bunup in watch mode
-- Auto-recompiles on file changes
-- Outputs to `dist/` directory
-
-### Building
-- `just build` - Production build
-- TypeScript compilation via bunup
-- Generates type definitions
-
-### Testing Workflow
-1. `just test [args]` - Run tests with vitest (can pass file path or other args)
-2. `just coverage` - Generate coverage report
-3. Tests run automatically in CI/CD
-
-### Code Quality
-- `just fmt` - Format code with Biome (auto-fix with --write --unsafe)
-- `just lint` - Lint code with Biome (check only with --unsafe)
-
-### CLI Commands
-- `just cli [args]` - Build and run the CLI with arguments
-- `just claude [args]` - Run Claude CLI via bunx
-- `just gemini [args]` - Run Gemini CLI via bunx
-- `just publish <version>` - Publish package to npm
-
-### CLI Flags
-- `-i, --input` - Input directory to analyze (default: current directory)
-- `-o, --output` - Output directory for style guides (default: ./context42)
-- `-m, --model` - Gemini model to use (default: gemini-2.5-flash)
-- `-c, --concurrency` - Number of concurrent operations (default: 4)
-- `-r, --run` - Resume from a previous run ID
-- `-d, --debug` - Debug mode - shows run ID on error and preserves it
-
-## Environment Variables
-
-- `GEMINI_API_KEY` - Required for Gemini CLI integration
-- Loaded via dotenv from `.env` file
-- Can be passed directly: `GEMINI_API_KEY=xxx bunx context42`
+- Graceful shutdown on SIGINT/SIGTERM
+- Comprehensive error messages in UI
+- Automatic file cleanup on errors
+- Database transaction safety
+- Resume capability for failed runs
 
 ## Common Tasks
 
-### Adding a New Command
-1. Create command handler in appropriate module
-2. Add Ink UI component if interactive
-3. Update CLI router in `src/index.tsx`
-4. Add tests for new functionality
+### Adding New File Types
+1. Update `languageExtensions` in `explorer.ts`
+2. Add test cases for new extensions
+3. Consider grouping logic for related types
 
-### Updating Database Schema
-1. Add migration logic in `database.ts`
-2. Use `db.exec()` for DDL statements
-3. Version migrations if needed
-4. Update type definitions
+### Modifying Worker Behavior
+1. Update `Processor` class in `processor.ts`
+2. Ensure abort controller integration
+3. Update progress tracking logic
+4. Test concurrent scenarios
 
-### Adding New Worker Types
-1. Extend worker pool in `processor.ts`
-2. Implement task handler
-3. Add progress tracking
-4. Update UI components
-
-### Debugging Failed Runs
-1. Run with `--debug` flag to see run ID on errors
-2. Check the database at `~/.context42/data.db` for partial results
-3. Resume failed runs using `--run <run-id>`
-4. All temporary `style.{ext}.md` files are automatically cleaned up
-
-## Performance Considerations
-
-- Worker pool size: Default 8, configurable via CLI
-- Database operations are synchronous (better-sqlite3)
-- File discovery uses efficient glob patterns
-- React reconciliation optimized for terminal rendering
-
-## Security Notes
-
-- Database stored in user home directory
-- No network requests except Gemini CLI calls
-- Sensitive data (API keys) never logged
-- File system access limited to specified directories
+### Database Schema Changes
+1. Add migration in `database.ts` init()
+2. Update TypeScript types
+3. Test with in-memory database
+4. Consider backward compatibility

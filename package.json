@@ -25,8 +25,9 @@
   "bin": "dist/main.js",
   "scripts": {
     "start": "tsx src/main.tsx",
-    "build": "node build.js",
-    "typecheck": "tsc --noEmit"
+    "build": "node scripts/build.js",
+    "typecheck": "tsc --noEmit",
+    "postinstall": "node scripts/postinstall.js"
   },
   "engines": {
     "node": ">=20"
@@ -45,7 +46,6 @@
     "ink-spinner": "^5.0.0",
     "meow": "^13.2.0",
     "object-hash": "^3.0.0",
-    "p-limit": "^6.2.0",
     "p-queue": "^8.1.0",
     "react": "^19.1.0",
     "ts-essentials": "^10.1.1",

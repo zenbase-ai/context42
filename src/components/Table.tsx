@@ -39,7 +39,7 @@ export type TableProps<T extends ScalarDict> = {
   /**
    * Header component.
    */
-  header: (props: React.PropsWithChildren<{}>) => React.JSX.Element
+  header: (props: React.PropsWithChildren) => React.JSX.Element
   /**
    * Component used to render a cell in the table.
    */
@@ -143,6 +143,7 @@ const Table = <T extends ScalarDict>(props: Pick<TableProps<T>, "data"> & Partia
   const getHeadings = useMemo((): Partial<T> => {
     const { columns } = getConfig
 
+    // biome-ignore lint/performance/noAccumulatingSpread: whatever
     const headings: Partial<T> = columns.reduce((acc, column) => ({ ...acc, [column]: column }), {})
 
     return headings
@@ -290,7 +291,7 @@ type RowConfig = {
    * Component used to render skeleton in the row.
    */
   skeleton: {
-    component: (props: React.PropsWithChildren<{}>) => React.JSX.Element
+    component: (props: React.PropsWithChildren) => React.JSX.Element
     /**
      * Characters used in skeleton.
      *    |             |

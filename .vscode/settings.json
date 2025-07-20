@@ -19,14 +19,14 @@
     "editor.insertSpaces": true,
     "editor.tabSize": 2,
     "files.exclude": {
-        "**/.DS_Store": false,
-        "**/.git": false,
-        "**/.hg": false,
-        "**/.ruby-lsp": false,
-        "**/.svn": false,
-        "**/CVS": false,
-        "**/Thumbs.db": false,
-        "dist/": false,
-        "node_modules/": false
+        "**/.DS_Store": true,
+        "**/.git": true,
+        "**/.hg": true,
+        "**/.ruby-lsp": true,
+        "**/.svn": true,
+        "**/CVS": true,
+        "**/Thumbs.db": true,
+        "dist/": true,
+        "node_modules/": true
     }
 }
