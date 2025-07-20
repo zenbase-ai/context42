@@ -38,7 +38,7 @@ export const WorkersStatus: React.FC<WorkersStatusProps> = ({ workers, inputDir,
     () => ({
       agent: 8,
       directory: 22,
-      status: 50,
+      status: 90,
     }),
     [],
   )
