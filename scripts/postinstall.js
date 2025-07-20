@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import { exec } from 'node:child_process'
-import { exists } from 'node:fs/promises'
-import { join, dirname } from 'node:path'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // Check if we're in a temporary directory (npx/pnpm dlx scenario)
 const cwd = process.cwd()
@@ -20,9 +20,9 @@ const checkAndRebuildPackage = async (packageName) => {
 
   try {
     // Try to load the package
-    const packagePath = join(__dirname, '..', 'node_modules', packageName)
+    const packagePath = path.join(__dirname, '..', 'node_modules', packageName)
 
-    if (!(await exists(packagePath))) {
+    if (!fs.existsSync(packagePath)) {
       console.log(`✅ ${packageName} not found, skipping rebuild`)
       return
     }
@@ -36,10 +36,18 @@ const checkAndRebuildPackage = async (packageName) => {
 
     try {
       // Try to rebuild the package
-      await new Promise(resolve => exec(`npm rebuild ${packageName}`, {
-        stdio: 'inherit',
-        cwd: join(__dirname, '..')
-      }, resolve))
+      await new Promise((resolve, reject) =>
+        exec(`npm rebuild ${packageName}`, {
+          stdio: 'inherit',
+          cwd: path.join(__dirname, '..')
+        }, (error, stdout, stderr) => {
+          if (error) {
+            reject(error)
+          } else {
+            resolve(stdout)
+          }
+        })
+      )
       console.log(`✅ Successfully rebuilt ${packageName} native bindings`)
     } catch (rebuildError) {
       console.error(`❌ Failed to rebuild ${packageName}:`, rebuildError.message)
