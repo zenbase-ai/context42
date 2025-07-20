@@ -26,6 +26,7 @@
   "scripts": {
     "start": "tsx src/main.tsx",
     "build": "node scripts/build.js",
+    "test": "vitest --run",
     "typecheck": "tsc --noEmit"
   },
   "engines": {
