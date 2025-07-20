@@ -1,4 +1,4 @@
-import { join, relative } from "node:path"
+import path from "node:path"
 import { Box, Text } from "ink"
 import type React from "react"
 import { useMemo } from "react"
@@ -12,7 +12,7 @@ export type WorkersStatusProps = {
 }
 
 const globpath = (inputDir: string, directory: string, language: string) =>
-  join(relative(inputDir, directory) || "./", `*.${language}`)
+  path.join(path.relative(inputDir, directory) || "./", `*.${language}`)
 
 export const WorkersStatus: React.FC<WorkersStatusProps> = ({ workers, inputDir, queuedTasks = [] }) => {
   const waitingTasks = queuedTasks.filter(t => t.status === "waiting").slice(0, workers.length)
@@ -26,7 +26,7 @@ export const WorkersStatus: React.FC<WorkersStatusProps> = ({ workers, inputDir,
             agent.status === "idle"
               ? "Waiting..."
               : agent.status === "working"
-                ? agent.progress || "Discovering..."
+                ? agent.progress || "Working..."
                 : agent.status === "success"
                   ? "Success"
                   : agent.error,

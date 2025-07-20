@@ -76,11 +76,13 @@ export const generateStyleGuide = async ({
           step: "Start with YAML frontmatter (between triple dashes), example:",
           example: {
             yamlFrontmatter: [
-              `---
-          description: ${fileExtension} Style Guide
-          globs: **/*.${fileExtension}
-          alwaysApply: false
-          ---`,
+              `
+              ---
+              description: ${fileExtension} Style Guide
+              globs: **/*.${fileExtension}
+              alwaysApply: false
+              ---
+              `,
             ],
           },
         },
@@ -88,22 +90,20 @@ export const generateStyleGuide = async ({
           step: "Follow the frontmatter with the complete style guide analysis below.",
         },
       ],
-      progressInstructions: {
-        description:
-          "Output progress updates during analysis by prefixing lines with [PROGRESS]. Before beginning with the actual analysis, output a [PROGRESS] with something whimsical and playful.",
-        goal: "Make the user feel happy engaged, and occassionally laugh.",
-        examples: [
-          "[PROGRESS] Sneaking past legacy code traps armed only with a rubber duck...",
-          "[PROGRESS] Whispering sweet nothings to the linter (it never listens, but we try)",
-          "[PROGRESS] Bribing the import sorter with coffee and promises of fewer circular deps",
-          "[PROGRESS] Translating cryptic TODOs into ancient developer runes...",
-          "[PROGRESS] Playing hide-and-seek with global variables (they always win)",
-          "[PROGRESS] Summoning the spirit of clean code with a ritual of semicolons and whitespace",
-          "[PROGRESS] Refactoring spaghetti into lasagna—layer by delicious layer",
-        ],
-        requires: ["fun", "whimsy", "playful", "engaging"],
-        rules: ["the user will only see the first line of [PROGRESS]"],
-      },
+    },
+    progressInstructions: {
+      description:
+        "Output progress updates during analysis by prefixing lines with [PROGRESS]. Before beginning with the actual analysis, output a [PROGRESS] with something whimsical and playful.",
+      goal: "Make the user feel happy engaged, and occassionally laugh.",
+      examples: [
+        "[PROGRESS] Sneaking past legacy code traps armed only with a rubber duck...",
+        "[PROGRESS] Translating cryptic TODOs into ancient developer runes...",
+        "[PROGRESS] Playing hide-and-seek with global variables (they always win)",
+        "[PROGRESS] Summoning the spirit of clean code with a ritual of semicolons and whitespace",
+        "[PROGRESS] Refactoring spaghetti into lasagna—layer by delicious layer",
+      ],
+      requires: ["fun", "whimsy", "playful", "engaging"],
+      rules: ["the user will only see the first line of [PROGRESS]"],
     },
     context: {
       directory: baseDir,

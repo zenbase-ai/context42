@@ -2,7 +2,7 @@ import path from "node:path"
 import { Box, Text, useApp } from "ink"
 import BigText from "ink-big-text"
 import Gradient from "ink-gradient"
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 import { ExplorerStatus } from "./components/ExplorerStatus.js"
 import { ProgressBar } from "./components/ProgressBar.js"
 import Table from "./components/Table.js"
@@ -11,7 +11,8 @@ import { useProcessor } from "./hooks/use-processor.js"
 import type { DB } from "./lib/database.js"
 import type { FileGroup, Language } from "./lib/types.js"
 
-const outputPath = (outputDir: string, lang: Language) => path.join(outputDir, `${lang}.md`)
+const outputPath = (inputDir: string, outputDir: string, lang: Language) =>
+  path.relative(inputDir, path.join(outputDir, `${lang}.md`))
 
 export type IndexProps = {
   fileGroups: Map<Language, FileGroup[]>
@@ -58,6 +59,16 @@ export const Index: React.FC<IndexProps> = ({
     }
   }, [results, error, exit, reset, database])
 
+  const resultsViewModel = useMemo(
+    () =>
+      results == null
+        ? []
+        : Array.from(results.keys())
+            .map(language => ({ language, path: outputPath(inputDir, outputDir, language) }))
+            .toSorted((a, b) => a.language.localeCompare(b.language)),
+    [results, inputDir, outputDir],
+  )
+
   return (
     <Box flexDirection="column" paddingY={1}>
       <Gradient name="retro">
@@ -69,13 +80,7 @@ export const Index: React.FC<IndexProps> = ({
           <Box marginTop={1}>
             <Text color="green">✓ Style guides generated successfully!</Text>
           </Box>
-          <Table
-            data={Array.from(results.entries()).map(([language]) => ({
-              language,
-              path: outputPath(outputDir, language),
-            }))}
-            columnWidths={{ language: 16, path: 32 }}
-          />
+          <Table data={resultsViewModel} columnWidths={{ language: 16, path: 32 }} />
         </>
       ) : error != null ? (
         <>
