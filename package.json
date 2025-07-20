@@ -20,24 +20,21 @@
     "formatting"
   ],
   "files": [
-    "dist",
-    "scripts"
+    "dist"
   ],
   "bin": "dist/main.js",
   "scripts": {
     "start": "tsx src/main.tsx",
     "build": "node scripts/build.js",
-    "typecheck": "tsc --noEmit",
-    "postinstall": "node scripts/postinstall.js"
+    "typecheck": "tsc --noEmit"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
     "@clack/prompts": "^0.11.0",
     "@google/gemini-cli": "^0.1.12",
     "@zenbase/llml": "^0.4.0",
-    "better-sqlite3": "^12.2.0",
     "es-toolkit": "^1.39.7",
     "exponential-backoff": "^3.1.2",
     "globby": "^14.1.0",
@@ -53,7 +50,6 @@
     "zx": "^8.7.1"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/object-hash": "^3.0.6",
     "@types/react": "^19.1.8",
     "@vdemedes/prettier-config": "^2.0.1",

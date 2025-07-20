@@ -1,4 +1,4 @@
-import path, { dirname, relative } from "node:path"
+import path from "node:path"
 import { llml } from "@zenbase/llml"
 import { backOff } from "exponential-backoff"
 import { $ } from "zx"
@@ -44,14 +44,14 @@ export const generateStyleGuide = async ({
   // Get the common base directory from all files
   const getCommonDirectory = (filePaths: string[]): string => {
     if (filePaths.length === 0) return process.cwd()
-    if (filePaths.length === 1) return dirname(filePaths[0]!)
+    if (filePaths.length === 1) return path.dirname(filePaths[0]!)
 
-    const dirs = filePaths.map(f => dirname(f))
+    const dirs = filePaths.map(f => path.dirname(f))
     let commonDir = dirs[0]!
 
     for (const dir of dirs) {
       while (!dir.startsWith(commonDir)) {
-        commonDir = dirname(commonDir)
+        commonDir = path.dirname(commonDir)
       }
     }
 
@@ -108,7 +108,7 @@ export const generateStyleGuide = async ({
     context: {
       directory: baseDir,
       fileCount: files.length,
-      files: [...files.map(f => relative(baseDir, f))].join("\n"),
+      files: [...files.map(f => path.relative(baseDir, f))].join("\n"),
       deepAnalysisRequired: true,
       captureSubtlePatterns: true,
       revealImplicitKnowledge: true,

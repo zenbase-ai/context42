@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto"
 import { mkdirSync } from "node:fs"
 import { relative } from "node:path"
-import Database from "better-sqlite3"
+import { DatabaseSync } from "node:sqlite"
 import type { StyleGuide } from "./types.js"
 
 export class DB {
-  private database: Database.Database
+  private database: DatabaseSync
   runId: string
 
   constructor(dbPath: string, existingRunId?: string) {
@@ -22,12 +22,12 @@ export class DB {
     }
 
     this.runId = existingRunId || randomUUID()
-    this.database = new Database(dbPath)
+    this.database = new DatabaseSync(dbPath)
 
     this.init()
   }
 
-  init(): void {
+  init = (): void => {
     // Create tables if they don't exist
     this.database.exec(`
       CREATE TABLE IF NOT EXISTS responses (
@@ -51,12 +51,12 @@ export class DB {
     `)
   }
 
-  saveResponse(result: string): void {
+  saveResponse = (result: string): void => {
     const stmt = this.database.prepare("INSERT INTO responses (run_id, result, created_at) VALUES (?, ?, ?)")
     stmt.run(this.runId, result, new Date().toISOString())
   }
 
-  saveStyleGuide(language: string, content: string, directory: string): void {
+  saveStyleGuide = (language: string, content: string, directory: string): void => {
     const now = new Date().toISOString()
 
     // Check if style guide exists for this language and directory in current run
@@ -77,7 +77,7 @@ export class DB {
     }
   }
 
-  getStyleGuide(language: string, directory: string): StyleGuide | null {
+  getStyleGuide = (language: string, directory: string): StyleGuide | null => {
     const stmt = this.database.prepare(
       "SELECT * FROM style_guides WHERE run_id = ? AND language = ? AND directory = ? ORDER BY updated_at DESC LIMIT 1",
     )
@@ -104,7 +104,7 @@ export class DB {
     }
   }
 
-  getChildStyleGuides(parentDirectory: string, language: string): Array<{ directory: string; content: string }> {
+  getChildStyleGuides = (parentDirectory: string, language: string): Array<{ directory: string; content: string }> => {
     const stmt = this.database.prepare(
       `SELECT directory, content FROM style_guides
        WHERE run_id = ? AND language = ? AND directory LIKE ?
@@ -128,8 +128,8 @@ export class DB {
     }))
   }
 
-  close(): void {
-    if (this.database) {
+  close = (): void => {
+    if (this.database?.isOpen) {
       this.database.close()
     }
   }

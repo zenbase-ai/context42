@@ -99,7 +99,9 @@ export const cli = async (): Promise<CLIResult | null> => {
 
   const languages = await multiselect({
     message: "What shall I ponder?",
-    options: Array.from(allFileGroups.keys()).map(ext => ({ label: `**/*.${ext}`, value: ext as string })),
+    options: Array.from(allFileGroups.keys())
+      .map(ext => ({ label: `**/*.${ext}`, value: ext as string }))
+      .toSorted((a, b) => a.value.localeCompare(b.value)),
   })
 
   if (isCancel(languages)) {
