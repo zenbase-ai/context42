@@ -51,7 +51,7 @@ const entrypoint = meow(
       model: {
         type: "string",
         shortFlag: "m",
-        default: "gemini-2.5-flash",
+        default: "gemini-2.5-pro",
       },
       concurrency: {
         type: "number",
